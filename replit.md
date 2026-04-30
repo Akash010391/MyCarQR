@@ -34,6 +34,7 @@ pnpm workspace monorepo using TypeScript.
 - `pnpm run typecheck` — full project typecheck
 - `pnpm --filter @workspace/api-spec run codegen` — regenerate API client from OpenAPI spec
 - `pnpm --filter @workspace/api-server run build` — build API server
+- `pnpm --filter @workspace/scripts run migrate-photos [-- --dry-run]` — one-off backfill that moves legacy `data:image/...;base64,...` photos out of `accident_reports.photos` and `lost_items.photos` into App Storage (`/objects/uploads/<uuid>`). Idempotent.
 
 ## Lib Packages
 
