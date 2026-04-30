@@ -7,6 +7,18 @@ const router = Router();
 
 // Validate an array of photo data-URLs sent in JSON. Returns the cleaned
 // array (sliced to maxCount) or a user-facing error string.
+//
+// Allowed formats are strictly JPG/JPEG/PNG/WEBP — we delegate the heavy
+// magic-byte / size check to validateScreenshot() and then add an extra
+// MIME whitelist on top to exclude GIF (which validateScreenshot otherwise
+// accepts) so the backend matches the frontend's accept= attribute.
+const ALLOWED_PHOTO_PREFIXES = [
+  "data:image/jpeg;base64,",
+  "data:image/jpg;base64,",
+  "data:image/png;base64,",
+  "data:image/webp;base64,",
+];
+
 function validatePhotoArray(
   input: unknown,
   maxCount: number,
@@ -18,13 +30,17 @@ function validatePhotoArray(
   const sliced = input.slice(0, maxCount);
   const out: string[] = [];
   for (let i = 0; i < sliced.length; i++) {
-    const err = validateScreenshot(sliced[i]);
+    const entry = sliced[i];
+    if (typeof entry !== "string" || !ALLOWED_PHOTO_PREFIXES.some((p) => entry.startsWith(p))) {
+      return { ok: false, error: `Photo ${i + 1} must be a JPEG, PNG, or WEBP image` };
+    }
+    const err = validateScreenshot(entry);
     if (err) {
       // Replace "Screenshot" framing with user-facing "Photo N"
       const friendly = err.replace(/^Screenshot/, `Photo ${i + 1}`);
       return { ok: false, error: friendly };
     }
-    out.push(sliced[i] as string);
+    out.push(entry);
   }
   return { ok: true, photos: out };
 }
