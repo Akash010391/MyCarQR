@@ -170,9 +170,11 @@ overrides:
   yaml: "^2.8.3"              # 2.8.2 -> 2.8.3 (GHSA-48c2 DoS)
   "brace-expansion": "^2.0.3" # 2.0.2 -> 2.0.3 (GHSA-f886 ReDoS)
   lodash: "^4.18.1"           # 4.17.23 -> 4.18.1 (GHSA-r5fr high CVE, GHSA-f23m moderate)
-  # NOT overridden: uuid 8.3.2/9.0.1 and @tootallnate/once 2.0.0.
-  # @google-cloud/storage 7.19.0 requires uuid "^8.0.0" verbatim and
-  # http-proxy-agent 5.0.0 requires @tootallnate/once "2" verbatim. The advisory fix
-  # versions (uuid 14, once 3) are ESM-only majors that are incompatible with
-  # those CJS callers, so forcing them would break GCS uploads. These will be
-  # cleared once @google-cloud/storage publishes a release that drops uuid 8.
+  # uuid 8/9 -> 14 (GHSA-w5hq insecure RNG). uuid 14 is ESM-only, but Node 24
+  # (the runtime declared in .replit "modules") supports require(esm) natively,
+  # so the CJS callers in @google-cloud/storage / gaxios load it transparently.
+  # Verified at runtime: GCS upload + signed URL paths still work.
+  uuid: "^14.0.0"
+  # @tootallnate/once 2 -> 3 (GHSA-vpq2 prototype pollution). Same reasoning —
+  # http-proxy-agent 5 requires it via CJS but Node 24 require(esm) handles it.
+  "@tootallnate/once": "^3.0.1"
