@@ -606,22 +606,24 @@ function AccidentReportsTab() {
                 {r.reporterName && <p className="text-xs text-muted-foreground">Reported by: {r.reporterName}</p>}
                 {Array.isArray(r.photos) && r.photos.length > 0 && (
                   <div className="flex gap-1.5 flex-wrap pt-1.5">
-                    {(r.photos as string[]).map((photo, i) => (
-                      <a
-                        key={i}
-                        href={photo}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        title="Open full size in new tab"
-                      >
-                        <img
-                          src={photo}
-                          alt={`accident photo ${i + 1}`}
-                          className="w-14 h-14 object-cover rounded-md border hover:opacity-80 transition-opacity"
-                          data-testid={`img-admin-accident-photo-${r.id}-${i}`}
-                        />
-                      </a>
-                    ))}
+                    {(r.photos as string[])
+                      .filter((p) => typeof p === "string" && p.startsWith("data:image/"))
+                      .map((photo, i) => (
+                        <a
+                          key={i}
+                          href={photo}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          title="Open full size in new tab"
+                        >
+                          <img
+                            src={photo}
+                            alt={`accident photo ${i + 1}`}
+                            className="w-14 h-14 object-cover rounded-md border hover:opacity-80 transition-opacity"
+                            data-testid={`img-admin-accident-photo-${r.id}-${i}`}
+                          />
+                        </a>
+                      ))}
                   </div>
                 )}
               </CardContent>
@@ -662,22 +664,24 @@ function LostItemsTab() {
                 {item.contactInfo && <p className="text-xs text-muted-foreground">Contact: {item.contactInfo}</p>}
                 {Array.isArray(item.photos) && item.photos.length > 0 && (
                   <div className="flex gap-1.5 flex-wrap pt-1.5">
-                    {(item.photos as string[]).map((photo, i) => (
-                      <a
-                        key={i}
-                        href={photo}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        title="Open full size in new tab"
-                      >
-                        <img
-                          src={photo}
-                          alt={`lost item photo ${i + 1}`}
-                          className="w-14 h-14 object-cover rounded-md border hover:opacity-80 transition-opacity"
-                          data-testid={`img-admin-lost-photo-${item.id}-${i}`}
-                        />
-                      </a>
-                    ))}
+                    {(item.photos as string[])
+                      .filter((p) => typeof p === "string" && p.startsWith("data:image/"))
+                      .map((photo, i) => (
+                        <a
+                          key={i}
+                          href={photo}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          title="Open full size in new tab"
+                        >
+                          <img
+                            src={photo}
+                            alt={`lost item photo ${i + 1}`}
+                            className="w-14 h-14 object-cover rounded-md border hover:opacity-80 transition-opacity"
+                            data-testid={`img-admin-lost-photo-${item.id}-${i}`}
+                          />
+                        </a>
+                      ))}
                   </div>
                 )}
               </CardContent>
