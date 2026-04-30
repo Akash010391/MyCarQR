@@ -43,6 +43,14 @@ const corsAllowlist = (process.env.CORS_ORIGIN ?? "")
   .split(",")
   .map((s) => s.trim())
   .filter(Boolean);
+if (process.env.NODE_ENV === "production" && corsAllowlist.length === 0) {
+  // Reflecting `origin: true` with `credentials: true` would allow any site to
+  // make authenticated cross-origin requests against the API, which is unsafe.
+  // Refuse to start so the operator notices and sets CORS_ORIGIN explicitly.
+  throw new Error(
+    "CORS_ORIGIN must be set in production (comma-separated list of allowed frontend origins, e.g. \"https://mycarqr.app,https://www.mycarqr.app\").",
+  );
+}
 app.use(
   cors({
     credentials: true,
