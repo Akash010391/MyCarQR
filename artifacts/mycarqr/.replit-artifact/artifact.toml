@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/"
+title = "MyCarQR"
+version = "1.0.0"
+id = "artifacts/mycarqr"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 18531
+
+[services.development]
+run = "pnpm --filter @workspace/mycarqr run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/mycarqr", "run", "build" ]
+publicDir = "artifacts/mycarqr/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "18531"
+BASE_PATH = "/"

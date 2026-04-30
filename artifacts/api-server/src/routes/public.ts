@@ -1,0 +1,225 @@
+import { Router } from "express";
+import { db, vehiclesTable, scanAlertsTable, usersTable, sosProfilesTable, accidentReportsTable, lostItemsTable } from "@workspace/db";
+import { eq, and, sql } from "drizzle-orm";
+
+const router = Router();
+
+// ─── Helper: resolve vehicle by QR ──────────────────────────────────────────
+
+async function resolveVehicle(qrCode: string) {
+  const [vehicle] = await db
+    .select()
+    .from(vehiclesTable)
+    .where(and(eq(vehiclesTable.qrCode, qrCode), eq(vehiclesTable.qrActive, true)));
+  return vehicle ?? null;
+}
+
+// GET /api/public/vehicle/:qrCode
+router.get("/public/vehicle/:qrCode", async (req, res) => {
+  const { qrCode } = req.params;
+  try {
+    const vehicle = await resolveVehicle(qrCode);
+    if (!vehicle) {
+      res.status(404).json({ error: "Vehicle not found or QR is disabled" });
+      return;
+    }
+
+    const publicInfo: Record<string, unknown> = {
+      vehicleNumber: vehicle.vehicleNumber,
+      vehicleType: vehicle.vehicleType,
+      privacyMode: vehicle.privacyMode,
+      qrCode: vehicle.qrCode,
+    };
+
+    if (!vehicle.privacyMode) {
+      publicInfo.brand = vehicle.brand;
+      publicInfo.model = vehicle.model;
+      publicInfo.color = vehicle.color;
+      publicInfo.ownerName = vehicle.ownerName;
+    } else {
+      publicInfo.ownerName = vehicle.ownerName.split(" ")[0] + ".";
+    }
+
+    if (vehicle.preferredContactMethod === "call" || vehicle.preferredContactMethod === "both") {
+      publicInfo.primaryContact = vehicle.primaryContact;
+    }
+    if (vehicle.preferredContactMethod === "whatsapp" || vehicle.preferredContactMethod === "both") {
+      publicInfo.whatsappNumber = vehicle.whatsappNumber;
+    }
+    publicInfo.preferredContactMethod = vehicle.preferredContactMethod;
+
+    res.json(publicInfo);
+  } catch (err) {
+    req.log.error(err, "Failed to fetch public vehicle");
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// GET /api/public/vehicle/:qrCode/sos
+router.get("/public/vehicle/:qrCode/sos", async (req, res) => {
+  const { qrCode } = req.params;
+  try {
+    const vehicle = await resolveVehicle(qrCode);
+    if (!vehicle) {
+      res.status(404).json({ error: "Vehicle not found or QR is disabled" });
+      return;
+    }
+
+    const [profile] = await db
+      .select()
+      .from(sosProfilesTable)
+      .where(and(eq(sosProfilesTable.userId, vehicle.userId), eq(sosProfilesTable.isEnabled, true)));
+
+    if (!profile) {
+      res.status(404).json({ error: "SOS profile not enabled" });
+      return;
+    }
+
+    res.json({
+      emergencyContactName: profile.emergencyContactName,
+      emergencyPhone: profile.emergencyPhone,
+      bloodGroup: profile.bloodGroup,
+      medicalNotes: profile.medicalNotes,
+      altContactName: profile.altContactName,
+      altContactPhone: profile.altContactPhone,
+    });
+  } catch (err) {
+    req.log.error(err, "Failed to fetch public SOS");
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// POST /api/public/vehicle/:qrCode/alert
+router.post("/public/vehicle/:qrCode/alert", async (req, res) => {
+  const { qrCode } = req.params;
+  const { alertType, message, scannerLocation } = req.body;
+
+  if (!alertType) {
+    res.status(400).json({ error: "alertType is required" });
+    return;
+  }
+
+  try {
+    const vehicle = await resolveVehicle(qrCode);
+    if (!vehicle) {
+      res.status(404).json({ error: "Vehicle not found or QR is disabled" });
+      return;
+    }
+
+    const [user] = await db.select().from(usersTable).where(eq(usersTable.userId, vehicle.userId));
+
+    if (user && user.plan === "free" && user.alertsThisMonth >= 5) {
+      res.status(429).json({ error: "Monthly alert limit reached for this vehicle's owner" });
+      return;
+    }
+
+    const [alert] = await db
+      .insert(scanAlertsTable)
+      .values({ vehicleId: vehicle.id, alertType, message: message || null, scannerLocation: scannerLocation || null, isRead: false })
+      .returning();
+
+    if (user) {
+      await db
+        .update(usersTable)
+        .set({ alertsThisMonth: sql`${usersTable.alertsThisMonth} + 1` })
+        .where(eq(usersTable.userId, vehicle.userId));
+    }
+
+    res.status(201).json({ ...alert, vehicleNumber: vehicle.vehicleNumber });
+  } catch (err) {
+    req.log.error(err, "Failed to send public alert");
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// POST /api/public/vehicle/:qrCode/accident
+router.post("/public/vehicle/:qrCode/accident", async (req, res) => {
+  const { qrCode } = req.params;
+  const { description, photos = [], latitude, longitude, locationLabel } = req.body;
+
+  if (!description) {
+    res.status(400).json({ error: "description is required" });
+    return;
+  }
+
+  try {
+    const vehicle = await resolveVehicle(qrCode);
+    if (!vehicle) {
+      res.status(404).json({ error: "Vehicle not found or QR is disabled" });
+      return;
+    }
+
+    // Limit photos: max 3 entries
+    const safePhotos = Array.isArray(photos) ? photos.slice(0, 3) : [];
+
+    const [report] = await db
+      .insert(accidentReportsTable)
+      .values({
+        vehicleId: vehicle.id,
+        description,
+        photos: safePhotos,
+        latitude: latitude || null,
+        longitude: longitude || null,
+        locationLabel: locationLabel || null,
+        isRead: false,
+      })
+      .returning();
+
+    res.status(201).json({
+      ...report,
+      photos: (report.photos as string[]) || [],
+      vehicleNumber: vehicle.vehicleNumber,
+      reportedAt: report.reportedAt.toISOString(),
+    });
+  } catch (err) {
+    req.log.error(err, "Failed to submit accident report");
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// POST /api/public/vehicle/:qrCode/lost-item
+router.post("/public/vehicle/:qrCode/lost-item", async (req, res) => {
+  const { qrCode } = req.params;
+  const { message, photos = [], latitude, longitude, locationLabel, finderContact } = req.body;
+
+  if (!message) {
+    res.status(400).json({ error: "message is required" });
+    return;
+  }
+
+  try {
+    const vehicle = await resolveVehicle(qrCode);
+    if (!vehicle) {
+      res.status(404).json({ error: "Vehicle not found or QR is disabled" });
+      return;
+    }
+
+    const safePhotos = Array.isArray(photos) ? photos.slice(0, 3) : [];
+
+    const [item] = await db
+      .insert(lostItemsTable)
+      .values({
+        vehicleId: vehicle.id,
+        message,
+        photos: safePhotos,
+        latitude: latitude || null,
+        longitude: longitude || null,
+        locationLabel: locationLabel || null,
+        finderContact: finderContact || null,
+        isRead: false,
+      })
+      .returning();
+
+    res.status(201).json({
+      ...item,
+      photos: (item.photos as string[]) || [],
+      vehicleNumber: vehicle.vehicleNumber,
+      reportedAt: item.reportedAt.toISOString(),
+    });
+  } catch (err) {
+    req.log.error(err, "Failed to submit lost item report");
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+export default router;
