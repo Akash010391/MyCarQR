@@ -24,6 +24,8 @@ const ALLOWED_PREFIXES: Array<{ prefix: string; magic: number[][] }> = [
 
 const MAX_BASE64_BYTES = Math.floor(8 * 1024 * 1024 * 1.4);
 
+const RAW_MAGIC_PATTERNS: number[][] = ALLOWED_PREFIXES.flatMap((p) => p.magic);
+
 function bytesMatch(actual: Uint8Array, pattern: number[]): boolean {
   if (actual.length < pattern.length) return false;
   for (let i = 0; i < pattern.length; i++) {
@@ -63,5 +65,18 @@ export function validateScreenshot(value: unknown): string | null {
     return "Screenshot file content does not match its declared image type";
   }
 
+  return null;
+}
+
+/**
+ * Verify a raw byte buffer (the first chunk of a file) starts with a magic
+ * sequence belonging to one of our accepted image formats. Used to validate
+ * photos that were uploaded directly to object storage.
+ */
+export function validateImageMagic(bytes: Uint8Array): string | null {
+  const matchesMagic = RAW_MAGIC_PATTERNS.some((m) => bytesMatch(bytes, m));
+  if (!matchesMagic) {
+    return "Photo content is not a valid JPEG, PNG, WEBP or GIF image";
+  }
   return null;
 }

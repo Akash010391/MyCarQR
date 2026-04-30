@@ -8,7 +8,9 @@ import {
   useSubmitLostItem,
   getGetPublicVehicleQueryKey,
   getGetPublicSosQueryKey,
+  requestUploadUrl,
 } from "@workspace/api-client-react";
+import { resolvePhotoSrc } from "@/lib/photoUrl";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -51,7 +53,7 @@ const ALLOWED_PHOTO_TYPES = new Set(["image/jpeg", "image/jpg", "image/png", "im
 const ALLOWED_PHOTO_EXT = /\.(jpe?g|png|webp)$/i;
 const MAX_PHOTO_BYTES = 10 * 1024 * 1024; // 10 MB original file
 
-async function compressPhoto(file: File, maxSize = 1280): Promise<string> {
+async function compressPhotoToBlob(file: File, maxSize = 1280): Promise<Blob> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = (e) => {
@@ -67,11 +69,14 @@ async function compressPhoto(file: File, maxSize = 1280): Promise<string> {
           return;
         }
         ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-        try {
-          resolve(canvas.toDataURL("image/jpeg", 0.8));
-        } catch (err) {
-          reject(err);
-        }
+        canvas.toBlob(
+          (blob) => {
+            if (blob) resolve(blob);
+            else reject(new Error("Could not encode image"));
+          },
+          "image/jpeg",
+          0.8,
+        );
       };
       img.onerror = () => reject(new Error("Could not decode image"));
       img.src = e.target!.result as string;
@@ -79,6 +84,26 @@ async function compressPhoto(file: File, maxSize = 1280): Promise<string> {
     reader.onerror = () => reject(new Error("Could not read file"));
     reader.readAsDataURL(file);
   });
+}
+
+// Upload a compressed photo blob to object storage via a presigned PUT URL.
+// Returns the object path (e.g. "/objects/uploads/<uuid>") to persist on the
+// report payload.
+async function uploadPhotoToStorage(blob: Blob, fileName: string): Promise<string> {
+  const presigned = await requestUploadUrl({
+    name: fileName,
+    size: blob.size,
+    contentType: blob.type || "image/jpeg",
+  });
+  const putRes = await fetch(presigned.uploadURL, {
+    method: "PUT",
+    headers: { "Content-Type": blob.type || "image/jpeg" },
+    body: blob,
+  });
+  if (!putRes.ok) {
+    throw new Error(`Upload failed: ${putRes.status}`);
+  }
+  return presigned.objectPath;
 }
 
 async function getLocation(): Promise<{ latitude: string; longitude: string; locationLabel: string } | null> {
@@ -110,6 +135,10 @@ function PhotoUploader({
   const { toast } = useToast();
   const fileRef = useRef<HTMLInputElement>(null);
   const [loading, setLoading] = useState(false);
+  // Map from object-storage path → blob: URL. Lets us show the local preview
+  // we just compressed without waiting for /api/storage/objects/* to be ready
+  // (and avoids a redundant network round-trip).
+  const previewUrlsRef = useRef<Map<string, string>>(new Map());
 
   async function handleFiles(files: FileList | null) {
     if (!files || files.length === 0) return;
@@ -135,10 +164,13 @@ function PhotoUploader({
           continue;
         }
         try {
-          const dataUrl = await compressPhoto(file);
-          accepted.push(dataUrl);
-        } catch {
-          errors.push(`${file.name || "File"}: could not read image. Try another photo.`);
+          const blob = await compressPhotoToBlob(file);
+          const objectPath = await uploadPhotoToStorage(blob, file.name || "photo.jpg");
+          previewUrlsRef.current.set(objectPath, URL.createObjectURL(blob));
+          accepted.push(objectPath);
+        } catch (err) {
+          const message = err instanceof Error ? err.message : "could not upload";
+          errors.push(`${file.name || "File"}: ${message}.`);
         }
       }
       if (accepted.length) onChange([...photos, ...accepted]);
@@ -156,13 +188,27 @@ function PhotoUploader({
     }
   }
 
+  function removePhoto(idx: number) {
+    const removed = photos[idx];
+    const localUrl = removed ? previewUrlsRef.current.get(removed) : undefined;
+    if (localUrl) {
+      URL.revokeObjectURL(localUrl);
+      previewUrlsRef.current.delete(removed);
+    }
+    onChange(photos.filter((_, j) => j !== idx));
+  }
+
+  function previewSrc(p: string): string {
+    return previewUrlsRef.current.get(p) ?? resolvePhotoSrc(p);
+  }
+
   return (
     <div>
       <div className="flex gap-2 flex-wrap">
         {photos.map((p, i) => (
           <div key={i} className="relative">
             <img
-              src={p}
+              src={previewSrc(p)}
               alt={`photo ${i + 1}`}
               className="w-20 h-20 object-cover rounded-lg border"
               data-testid={`img-photo-preview-${i}`}
@@ -172,7 +218,7 @@ function PhotoUploader({
               aria-label={`Remove photo ${i + 1}`}
               data-testid={`button-remove-photo-${i}`}
               className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center"
-              onClick={() => onChange(photos.filter((_, j) => j !== i))}
+              onClick={() => removePhoto(i)}
             >
               <X className="w-3 h-3 text-white" />
             </button>

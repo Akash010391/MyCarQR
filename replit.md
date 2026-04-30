@@ -116,3 +116,18 @@ Each of the 4 sticker designs ships in 3 square HD resolutions plus a legacy fal
 - **Testimonials** stored in `testimonials` and curated by admins.
 - **5 new admin tabs**: Messages, Legal, FAQs, Testimonials, Tickets — each has full CRUD using a small shared `useAdminFetch` helper. All admin endpoints are gated by `requireAuth + requireAdmin`.
 - **DB schema additions**: `contact_messages`, `legal_pages`, `faqs`, `testimonials`, `support_tickets`, `notification_preferences`. Pushed via `pnpm --filter @workspace/db run db:push`. Default legal/FAQ content seeded.
+
+## Object Storage for Photos (Apr 2026)
+
+Accident-report and lost-item photos are stored in Replit App Storage (Google Cloud Storage), not as base64 inside the Postgres `photos` jsonb column.
+
+- **Required env vars** (auto-provisioned on Replit by `setupObjectStorage()`; documented in `.env.example`):
+  - `DEFAULT_OBJECT_STORAGE_BUCKET_ID` — GCS bucket name
+  - `PRIVATE_OBJECT_DIR` — bucket-prefixed path for new uploads (e.g. `/<bucket>/.private`)
+  - `PUBLIC_OBJECT_SEARCH_PATHS` — comma-separated public asset search paths
+- **Upload flow (frontend)** — `artifacts/mycarqr/src/pages/scan.tsx` PhotoUploader: compress image → `POST /api/storage/uploads/request-url` (zod-validated body: `{name, size, contentType}`, max 8 MB, image/* only) → returns `{uploadURL, objectPath}` → PUT bytes directly to the GCS presigned URL → store the `/objects/uploads/<uuid>` path in component state. Local preview uses a `blob:` URL via `URL.createObjectURL`.
+- **Submit** — `photos` field in accident/lost-item POST is now an array of object paths (`/objects/...`); legacy data URLs are still accepted and stored unchanged for backward compatibility.
+- **Server validation** — `artifacts/api-server/src/routes/public.ts` `validatePhotoArray` is async: for `/objects/...` paths it fetches the first 32 bytes from GCS and checks JPEG/PNG/WEBP/GIF magic via `validateImageMagic`; for `data:` URLs it falls back to the existing `validateScreenshot`.
+- **Serving** — read access via `GET /api/storage/objects/<path>` (handled by `routes/storage.ts`, streams from GCS with ACL check). Frontend uses `resolvePhotoSrc` (`artifacts/mycarqr/src/lib/photoUrl.ts`) to map `/objects/...` → `/api/storage/objects/...`; legacy data URLs pass through unchanged.
+- **Renderers updated**: `accident-reports.tsx`, `lost-items.tsx`, `admin.tsx` (accidents + lost-items thumbs/links).
+- **Schema unchanged**: `accident_reports.photos` and `lost_items.photos` remain `jsonb` arrays of strings — they now hold either a `/objects/...` path or a legacy `data:` URL. No migration of historical rows was performed.

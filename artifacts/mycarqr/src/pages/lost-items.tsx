@@ -7,6 +7,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { KeyRound, MapPin, Clock, Car, Phone, Image, CheckCheck, ChevronDown, ChevronUp } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { PremiumGate } from "@/components/premium-gate";
+import { resolvePhotoSrc } from "@/lib/photoUrl";
 
 function formatDate(d: string) {
   return new Date(d).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" });
@@ -81,7 +82,7 @@ function ItemCard({ item }: { item: { id: number; vehicleId: number; vehicleNumb
                     {item.photos.map((photo, i) => (
                       <img
                         key={i}
-                        src={photo}
+                        src={resolvePhotoSrc(photo)}
                         alt={`Photo ${i + 1}`}
                         className="w-20 h-20 object-cover rounded-lg border"
                       />

@@ -18,6 +18,7 @@ import faqsRouter from "./faqs";
 import testimonialsRouter from "./testimonials";
 import supportTicketsRouter from "./supportTickets";
 import notificationsRouter from "./notifications";
+import storageRouter from "./storage";
 
 const router: IRouter = Router();
 
@@ -40,5 +41,6 @@ router.use(faqsRouter);
 router.use(testimonialsRouter);
 router.use(supportTicketsRouter);
 router.use(notificationsRouter);
+router.use(storageRouter);
 
 export default router;

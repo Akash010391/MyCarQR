@@ -25,6 +25,7 @@ import LegalEditorTab from "@/components/admin/legal-editor-tab";
 import FaqsTab from "@/components/admin/faqs-tab";
 import TestimonialsTab from "@/components/admin/testimonials-tab";
 import SupportTicketsTab from "@/components/admin/support-tickets-tab";
+import { resolvePhotoSrc } from "@/lib/photoUrl";
 import {
   Shield, Users, Car, Bell, TrendingUp, CreditCard, CheckCircle, XCircle,
   Clock, Upload, Save, AlertTriangle, KeyRound, RefreshCw, ChevronDown, QrCode, Package, Truck
@@ -607,23 +608,26 @@ function AccidentReportsTab() {
                 {Array.isArray(r.photos) && r.photos.length > 0 && (
                   <div className="flex gap-1.5 flex-wrap pt-1.5">
                     {(r.photos as string[])
-                      .filter((p) => typeof p === "string" && p.startsWith("data:image/"))
-                      .map((photo, i) => (
-                        <a
-                          key={i}
-                          href={photo}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          title="Open full size in new tab"
-                        >
-                          <img
-                            src={photo}
-                            alt={`accident photo ${i + 1}`}
-                            className="w-14 h-14 object-cover rounded-md border hover:opacity-80 transition-opacity"
-                            data-testid={`img-admin-accident-photo-${r.id}-${i}`}
-                          />
-                        </a>
-                      ))}
+                      .filter((p) => typeof p === "string" && (p.startsWith("data:image/") || p.startsWith("/objects/")))
+                      .map((photo, i) => {
+                        const src = resolvePhotoSrc(photo);
+                        return (
+                          <a
+                            key={i}
+                            href={src}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            title="Open full size in new tab"
+                          >
+                            <img
+                              src={src}
+                              alt={`accident photo ${i + 1}`}
+                              className="w-14 h-14 object-cover rounded-md border hover:opacity-80 transition-opacity"
+                              data-testid={`img-admin-accident-photo-${r.id}-${i}`}
+                            />
+                          </a>
+                        );
+                      })}
                   </div>
                 )}
               </CardContent>
@@ -665,23 +669,26 @@ function LostItemsTab() {
                 {Array.isArray(item.photos) && item.photos.length > 0 && (
                   <div className="flex gap-1.5 flex-wrap pt-1.5">
                     {(item.photos as string[])
-                      .filter((p) => typeof p === "string" && p.startsWith("data:image/"))
-                      .map((photo, i) => (
-                        <a
-                          key={i}
-                          href={photo}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          title="Open full size in new tab"
-                        >
-                          <img
-                            src={photo}
-                            alt={`lost item photo ${i + 1}`}
-                            className="w-14 h-14 object-cover rounded-md border hover:opacity-80 transition-opacity"
-                            data-testid={`img-admin-lost-photo-${item.id}-${i}`}
-                          />
-                        </a>
-                      ))}
+                      .filter((p) => typeof p === "string" && (p.startsWith("data:image/") || p.startsWith("/objects/")))
+                      .map((photo, i) => {
+                        const src = resolvePhotoSrc(photo);
+                        return (
+                          <a
+                            key={i}
+                            href={src}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            title="Open full size in new tab"
+                          >
+                            <img
+                              src={src}
+                              alt={`lost item photo ${i + 1}`}
+                              className="w-14 h-14 object-cover rounded-md border hover:opacity-80 transition-opacity"
+                              data-testid={`img-admin-lost-photo-${item.id}-${i}`}
+                            />
+                          </a>
+                        );
+                      })}
                   </div>
                 )}
               </CardContent>

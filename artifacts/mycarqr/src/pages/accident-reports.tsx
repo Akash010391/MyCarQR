@@ -7,6 +7,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { AlertTriangle, MapPin, Clock, Car, Image, CheckCheck, ChevronDown, ChevronUp } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { PremiumGate } from "@/components/premium-gate";
+import { resolvePhotoSrc } from "@/lib/photoUrl";
 
 function formatDate(d: string) {
   return new Date(d).toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" });
@@ -75,7 +76,7 @@ function ReportCard({ report }: { report: { id: number; vehicleId: number; vehic
                     {report.photos.map((photo, i) => (
                       <button key={i} onClick={() => setPhotoIdx(i)} className="relative">
                         <img
-                          src={photo}
+                          src={resolvePhotoSrc(photo)}
                           alt={`Photo ${i + 1}`}
                           className={`w-20 h-20 object-cover rounded-lg border-2 transition-all ${photoIdx === i ? "border-primary" : "border-border"}`}
                         />
@@ -85,7 +86,7 @@ function ReportCard({ report }: { report: { id: number; vehicleId: number; vehic
                 )}
                 {expanded && report.photos[photoIdx] && (
                   <img
-                    src={report.photos[photoIdx]}
+                    src={resolvePhotoSrc(report.photos[photoIdx])}
                     alt="Full size"
                     className="mt-2 w-full max-h-72 object-contain rounded-xl border"
                   />

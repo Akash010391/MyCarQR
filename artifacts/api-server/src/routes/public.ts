@@ -1,17 +1,22 @@
 import { Router } from "express";
 import { db, vehiclesTable, scanAlertsTable, usersTable, sosProfilesTable, accidentReportsTable, lostItemsTable } from "@workspace/db";
 import { eq, and, sql } from "drizzle-orm";
-import { validateScreenshot } from "../lib/imageValidation";
+import { validateScreenshot, validateImageMagic } from "../lib/imageValidation";
+import { ObjectStorageService, ObjectNotFoundError } from "../lib/objectStorage";
 
 const router = Router();
 
-// Validate an array of photo data-URLs sent in JSON. Returns the cleaned
-// array (sliced to maxCount) or a user-facing error string.
-//
-// Allowed formats are strictly JPG/JPEG/PNG/WEBP — we delegate the heavy
-// magic-byte / size check to validateScreenshot() and then add an extra
-// MIME whitelist on top to exclude GIF (which validateScreenshot otherwise
-// accepts) so the backend matches the frontend's accept= attribute.
+const objectStorageService = new ObjectStorageService();
+
+// Photos arrive as one of two shapes:
+//   1. Object-storage paths like "/objects/uploads/<uuid>" (new flow — bytes
+//      already live in the bucket and we verify them here by fetching the
+//      first chunk of the file and matching its magic bytes).
+//   2. Legacy base64 data URLs ("data:image/jpeg;base64,…") that older
+//      clients still send and that exist in the database from before the
+//      migration. These are validated in-place via validateScreenshot, but
+//      restricted to a strict JPG/JPEG/PNG/WEBP MIME whitelist (no GIF) so
+//      the backend matches the frontend's `accept=` attribute.
 const ALLOWED_PHOTO_PREFIXES = [
   "data:image/jpeg;base64,",
   "data:image/jpg;base64,",
@@ -19,10 +24,10 @@ const ALLOWED_PHOTO_PREFIXES = [
   "data:image/webp;base64,",
 ];
 
-function validatePhotoArray(
+async function validatePhotoArray(
   input: unknown,
   maxCount: number,
-): { ok: true; photos: string[] } | { ok: false; error: string } {
+): Promise<{ ok: true; photos: string[] } | { ok: false; error: string }> {
   if (input === undefined || input === null) return { ok: true, photos: [] };
   if (!Array.isArray(input)) {
     return { ok: false, error: "photos must be an array" };
@@ -30,19 +35,58 @@ function validatePhotoArray(
   const sliced = input.slice(0, maxCount);
   const out: string[] = [];
   for (let i = 0; i < sliced.length; i++) {
-    const entry = sliced[i];
-    if (typeof entry !== "string" || !ALLOWED_PHOTO_PREFIXES.some((p) => entry.startsWith(p))) {
+    const value = sliced[i];
+    if (typeof value !== "string") {
+      return { ok: false, error: `Photo ${i + 1} must be a string` };
+    }
+    if (value.startsWith("/objects/")) {
+      const err = await validateObjectStoragePhoto(value);
+      if (err) return { ok: false, error: `Photo ${i + 1}: ${err}` };
+      out.push(value);
+      continue;
+    }
+    if (!ALLOWED_PHOTO_PREFIXES.some((p) => value.startsWith(p))) {
       return { ok: false, error: `Photo ${i + 1} must be a JPEG, PNG, or WEBP image` };
     }
-    const err = validateScreenshot(entry);
+    const err = validateScreenshot(value);
     if (err) {
-      // Replace "Screenshot" framing with user-facing "Photo N"
       const friendly = err.replace(/^Screenshot/, `Photo ${i + 1}`);
       return { ok: false, error: friendly };
     }
-    out.push(entry);
+    out.push(value);
   }
   return { ok: true, photos: out };
+}
+
+async function validateObjectStoragePhoto(objectPath: string): Promise<string | null> {
+  try {
+    const file = await objectStorageService.getObjectEntityFile(objectPath);
+    const [metadata] = await file.getMetadata();
+    const declaredType = (metadata.contentType as string | undefined)?.toLowerCase() ?? "";
+    if (!declaredType.startsWith("image/")) {
+      return "uploaded file is not an image";
+    }
+    const sizeStr = metadata.size as string | number | undefined;
+    const size = typeof sizeStr === "string" ? Number.parseInt(sizeStr, 10) : sizeStr ?? 0;
+    if (!size || size <= 0) {
+      return "uploaded file is empty";
+    }
+    if (size > 10 * 1024 * 1024) {
+      return "uploaded file exceeds the 10 MB limit";
+    }
+    const stream = file.createReadStream({ start: 0, end: 31 });
+    const chunks: Buffer[] = [];
+    for await (const chunk of stream) {
+      chunks.push(chunk as Buffer);
+    }
+    const head = new Uint8Array(Buffer.concat(chunks));
+    return validateImageMagic(head);
+  } catch (err) {
+    if (err instanceof ObjectNotFoundError) {
+      return "uploaded file could not be found";
+    }
+    throw err;
+  }
 }
 
 // ─── Helper: resolve vehicle by QR ──────────────────────────────────────────
@@ -190,8 +234,8 @@ router.post("/public/vehicle/:qrCode/accident", async (req, res) => {
       return;
     }
 
-    // Validate photos: each must be a real JPEG/PNG/WEBP/GIF data URL within size limits
-    const photoCheck = validatePhotoArray(photos, 3);
+    // Validate photos: object-storage paths or legacy base64 data URLs
+    const photoCheck = await validatePhotoArray(photos, 3);
     if (!photoCheck.ok) {
       res.status(400).json({ error: photoCheck.error });
       return;
@@ -240,7 +284,7 @@ router.post("/public/vehicle/:qrCode/lost-item", async (req, res) => {
     }
 
     // Lost item submissions allow up to 2 photos (matches the frontend cap).
-    const photoCheck = validatePhotoArray(photos, 2);
+    const photoCheck = await validatePhotoArray(photos, 2);
     if (!photoCheck.ok) {
       res.status(400).json({ error: photoCheck.error });
       return;
