@@ -105,7 +105,7 @@ Each of the 4 sticker designs ships in 3 square HD resolutions plus a legacy fal
 
 ## Legal/Trust Pages, Tabbed Profile & Expanded Admin (Apr 2026)
 
-- **Public legal/trust pages**: `/about`, `/contact`, `/privacy`, `/terms`, `/refund`, `/shipping`, `/disclaimer` — markdown content stored in `legal_pages` table (DB-backed), rendered via `react-markdown` (no raw HTML), wrapped in shared `PublicPage` (header + footer). Admins edit content from Admin → Legal tab.
+- **Public legal/trust pages**: `/about`, `/contact`, `/privacy`, `/terms`, `/refund`, `/shipping`, `/disclaimer` — markdown content stored in `legal_pages` table (DB-backed), rendered via `react-markdown` (no raw HTML), wrapped in shared `PublicPage` (header + footer). Admins edit content from Admin → Legal tab. **Pages never go blank**: if a slug has no DB row (e.g. fresh production deploy with empty `legal_pages` table) the API serves built-in default content from `artifacts/api-server/src/lib/defaultLegalContent.ts` so users always see real text instead of "couldn't load this page". The list endpoint also merges DB rows with defaults so the admin Legal tab always shows all 6 slugs.
 - **Public footer** (`PublicFooter`) replaces landing-page footer; links to all legal pages.
 - **App footer** rendered inside `AppLayout`'s scroll area for signed-in pages.
 - **Contact form** (`POST /api/contact`) — public form with validation, hidden honeypot field, and per-IP rate limit (5 / 10 min). Messages flow into Admin → Messages with status workflow (new/read/replied/archived) and admin notes.

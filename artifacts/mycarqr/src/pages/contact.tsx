@@ -48,7 +48,10 @@ export default function Contact() {
       const data = await res.json();
       if (!res.ok) throw new Error(data?.error || "Submit failed");
       setSubmitted(true);
-      toast({ title: "Message sent", description: "We'll get back within 1–2 working days." });
+      toast({
+        title: "Message sent",
+        description: "Thank you for contacting MyCarQR. Our team will get back to you soon.",
+      });
     } catch (err) {
       toast({
         title: "Could not send",
@@ -77,8 +80,8 @@ export default function Contact() {
                 <Mail className="w-5 h-5 text-primary mt-0.5" />
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Email</p>
-                  <a href="mailto:support@mycarqr.app" className="text-sm hover:underline">
-                    support@mycarqr.app
+                  <a href="mailto:support@mycarqr.in" className="text-sm hover:underline">
+                    support@mycarqr.in
                   </a>
                 </div>
               </CardContent>
@@ -120,9 +123,9 @@ export default function Contact() {
               {submitted ? (
                 <div className="flex flex-col items-center text-center py-10 gap-3">
                   <CheckCircle2 className="w-12 h-12 text-green-600" />
-                  <h3 className="font-semibold text-lg">Thanks — message received!</h3>
+                  <h3 className="font-semibold text-lg">Thank you for contacting MyCarQR</h3>
                   <p className="text-sm text-muted-foreground max-w-sm">
-                    We've logged your message and will reply at <strong>{form.email}</strong> within 1–2 working days.
+                    Our team will get back to you soon at <strong>{form.email}</strong>.
                   </p>
                   <Button
                     variant="outline"
@@ -210,7 +213,7 @@ export default function Contact() {
                     className="w-full sm:w-auto"
                     data-testid="button-contact-submit"
                   >
-                    {submitting ? "Sending..." : "Send message"}
+                    {submitting ? "Sending..." : "Send Message"}
                   </Button>
                 </form>
               )}
