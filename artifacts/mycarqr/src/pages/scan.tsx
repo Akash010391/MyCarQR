@@ -47,7 +47,11 @@ function vehicleEmoji(type?: string) {
   return "🚗";
 }
 
-async function compressPhoto(file: File, maxSize = 480): Promise<string> {
+const ALLOWED_PHOTO_TYPES = new Set(["image/jpeg", "image/jpg", "image/png", "image/webp"]);
+const ALLOWED_PHOTO_EXT = /\.(jpe?g|png|webp)$/i;
+const MAX_PHOTO_BYTES = 10 * 1024 * 1024; // 10 MB original file
+
+async function compressPhoto(file: File, maxSize = 1280): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = (e) => {
@@ -55,15 +59,24 @@ async function compressPhoto(file: File, maxSize = 480): Promise<string> {
       img.onload = () => {
         const canvas = document.createElement("canvas");
         const ratio = Math.min(maxSize / img.width, maxSize / img.height, 1);
-        canvas.width = img.width * ratio;
-        canvas.height = img.height * ratio;
-        canvas.getContext("2d")!.drawImage(img, 0, 0, canvas.width, canvas.height);
-        resolve(canvas.toDataURL("image/jpeg", 0.75));
+        canvas.width = Math.max(1, Math.round(img.width * ratio));
+        canvas.height = Math.max(1, Math.round(img.height * ratio));
+        const ctx = canvas.getContext("2d");
+        if (!ctx) {
+          reject(new Error("Canvas not available"));
+          return;
+        }
+        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        try {
+          resolve(canvas.toDataURL("image/jpeg", 0.8));
+        } catch (err) {
+          reject(err);
+        }
       };
-      img.onerror = reject;
+      img.onerror = () => reject(new Error("Could not decode image"));
       img.src = e.target!.result as string;
     };
-    reader.onerror = reject;
+    reader.onerror = () => reject(new Error("Could not read file"));
     reader.readAsDataURL(file);
   });
 }
@@ -94,18 +107,52 @@ function PhotoUploader({
   onChange: (photos: string[]) => void;
   max?: number;
 }) {
+  const { toast } = useToast();
   const fileRef = useRef<HTMLInputElement>(null);
   const [loading, setLoading] = useState(false);
 
   async function handleFiles(files: FileList | null) {
-    if (!files) return;
+    if (!files || files.length === 0) return;
+    if (loading) return; // ignore concurrent selections while we're already processing
     setLoading(true);
+    const accepted: string[] = [];
+    const errors: string[] = [];
     try {
-      const toAdd = Array.from(files).slice(0, max - photos.length);
-      const compressed = await Promise.all(toAdd.map(compressPhoto));
-      onChange([...photos, ...compressed]);
+      const slots = Math.max(0, max - photos.length);
+      const candidates = Array.from(files).slice(0, slots);
+      if (files.length > slots) {
+        errors.push(`Only ${slots} more photo${slots === 1 ? "" : "s"} allowed (max ${max}).`);
+      }
+      for (const file of candidates) {
+        const typeOk =
+          ALLOWED_PHOTO_TYPES.has(file.type.toLowerCase()) || ALLOWED_PHOTO_EXT.test(file.name);
+        if (!typeOk) {
+          errors.push(`${file.name || "File"}: please use JPG, PNG or WEBP.`);
+          continue;
+        }
+        if (file.size > MAX_PHOTO_BYTES) {
+          errors.push(`${file.name || "File"}: too large (max 10 MB).`);
+          continue;
+        }
+        try {
+          const dataUrl = await compressPhoto(file);
+          accepted.push(dataUrl);
+        } catch {
+          errors.push(`${file.name || "File"}: could not read image. Try another photo.`);
+        }
+      }
+      if (accepted.length) onChange([...photos, ...accepted]);
+      if (errors.length) {
+        toast({
+          title: errors.length === 1 ? "Photo not added" : `${errors.length} photo(s) not added`,
+          description: errors.join(" "),
+          variant: "destructive",
+        });
+      }
     } finally {
       setLoading(false);
+      // Reset so the same file can be re-selected after removing it
+      if (fileRef.current) fileRef.current.value = "";
     }
   }
 
@@ -114,8 +161,16 @@ function PhotoUploader({
       <div className="flex gap-2 flex-wrap">
         {photos.map((p, i) => (
           <div key={i} className="relative">
-            <img src={p} alt={`photo ${i + 1}`} className="w-20 h-20 object-cover rounded-lg border" />
+            <img
+              src={p}
+              alt={`photo ${i + 1}`}
+              className="w-20 h-20 object-cover rounded-lg border"
+              data-testid={`img-photo-preview-${i}`}
+            />
             <button
+              type="button"
+              aria-label={`Remove photo ${i + 1}`}
+              data-testid={`button-remove-photo-${i}`}
               className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center"
               onClick={() => onChange(photos.filter((_, j) => j !== i))}
             >
@@ -125,21 +180,28 @@ function PhotoUploader({
         ))}
         {photos.length < max && (
           <button
+            type="button"
             onClick={() => fileRef.current?.click()}
             disabled={loading}
-            className="w-20 h-20 rounded-lg border-2 border-dashed border-muted-foreground/40 flex flex-col items-center justify-center gap-1 hover:border-primary hover:bg-primary/5 transition-colors text-muted-foreground"
+            data-testid="button-add-photo"
+            aria-label="Add photo"
+            className="w-20 h-20 rounded-lg border-2 border-dashed border-muted-foreground/40 flex flex-col items-center justify-center gap-1 hover:border-primary hover:bg-primary/5 transition-colors text-muted-foreground disabled:opacity-50"
           >
             {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : <Camera className="w-5 h-5" />}
-            <span className="text-xs">Add</span>
+            <span className="text-xs">{loading ? "Loading" : "Add"}</span>
           </button>
         )}
       </div>
+      <p className="text-xs text-muted-foreground mt-1.5">
+        JPG, PNG or WEBP · up to 10 MB each · max {max} photo{max === 1 ? "" : "s"}
+      </p>
       <input
         ref={fileRef}
         type="file"
-        accept="image/*"
+        accept="image/jpeg,image/jpg,image/png,image/webp"
         multiple
         className="hidden"
+        data-testid="input-photo-upload"
         onChange={(e) => handleFiles(e.target.files)}
       />
     </div>

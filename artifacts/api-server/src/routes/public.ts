@@ -1,8 +1,33 @@
 import { Router } from "express";
 import { db, vehiclesTable, scanAlertsTable, usersTable, sosProfilesTable, accidentReportsTable, lostItemsTable } from "@workspace/db";
 import { eq, and, sql } from "drizzle-orm";
+import { validateScreenshot } from "../lib/imageValidation";
 
 const router = Router();
+
+// Validate an array of photo data-URLs sent in JSON. Returns the cleaned
+// array (sliced to maxCount) or a user-facing error string.
+function validatePhotoArray(
+  input: unknown,
+  maxCount: number,
+): { ok: true; photos: string[] } | { ok: false; error: string } {
+  if (input === undefined || input === null) return { ok: true, photos: [] };
+  if (!Array.isArray(input)) {
+    return { ok: false, error: "photos must be an array" };
+  }
+  const sliced = input.slice(0, maxCount);
+  const out: string[] = [];
+  for (let i = 0; i < sliced.length; i++) {
+    const err = validateScreenshot(sliced[i]);
+    if (err) {
+      // Replace "Screenshot" framing with user-facing "Photo N"
+      const friendly = err.replace(/^Screenshot/, `Photo ${i + 1}`);
+      return { ok: false, error: friendly };
+    }
+    out.push(sliced[i] as string);
+  }
+  return { ok: true, photos: out };
+}
 
 // ─── Helper: resolve vehicle by QR ──────────────────────────────────────────
 
@@ -149,15 +174,19 @@ router.post("/public/vehicle/:qrCode/accident", async (req, res) => {
       return;
     }
 
-    // Limit photos: max 3 entries
-    const safePhotos = Array.isArray(photos) ? photos.slice(0, 3) : [];
+    // Validate photos: each must be a real JPEG/PNG/WEBP/GIF data URL within size limits
+    const photoCheck = validatePhotoArray(photos, 3);
+    if (!photoCheck.ok) {
+      res.status(400).json({ error: photoCheck.error });
+      return;
+    }
 
     const [report] = await db
       .insert(accidentReportsTable)
       .values({
         vehicleId: vehicle.id,
         description,
-        photos: safePhotos,
+        photos: photoCheck.photos,
         latitude: latitude || null,
         longitude: longitude || null,
         locationLabel: locationLabel || null,
@@ -194,14 +223,19 @@ router.post("/public/vehicle/:qrCode/lost-item", async (req, res) => {
       return;
     }
 
-    const safePhotos = Array.isArray(photos) ? photos.slice(0, 3) : [];
+    // Lost item submissions allow up to 2 photos (matches the frontend cap).
+    const photoCheck = validatePhotoArray(photos, 2);
+    if (!photoCheck.ok) {
+      res.status(400).json({ error: photoCheck.error });
+      return;
+    }
 
     const [item] = await db
       .insert(lostItemsTable)
       .values({
         vehicleId: vehicle.id,
         message,
-        photos: safePhotos,
+        photos: photoCheck.photos,
         latitude: latitude || null,
         longitude: longitude || null,
         locationLabel: locationLabel || null,

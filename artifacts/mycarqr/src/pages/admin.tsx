@@ -604,6 +604,26 @@ function AccidentReportsTab() {
                 {r.description && <p className="text-xs text-muted-foreground line-clamp-2">{r.description}</p>}
                 {r.location && <p className="text-xs text-muted-foreground">📍 {r.location}</p>}
                 {r.reporterName && <p className="text-xs text-muted-foreground">Reported by: {r.reporterName}</p>}
+                {Array.isArray(r.photos) && r.photos.length > 0 && (
+                  <div className="flex gap-1.5 flex-wrap pt-1.5">
+                    {(r.photos as string[]).map((photo, i) => (
+                      <a
+                        key={i}
+                        href={photo}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        title="Open full size in new tab"
+                      >
+                        <img
+                          src={photo}
+                          alt={`accident photo ${i + 1}`}
+                          className="w-14 h-14 object-cover rounded-md border hover:opacity-80 transition-opacity"
+                          data-testid={`img-admin-accident-photo-${r.id}-${i}`}
+                        />
+                      </a>
+                    ))}
+                  </div>
+                )}
               </CardContent>
             </Card>
           ))}
@@ -640,6 +660,26 @@ function LostItemsTab() {
                 </div>
                 {item.description && <p className="text-xs text-muted-foreground line-clamp-2">{item.description}</p>}
                 {item.contactInfo && <p className="text-xs text-muted-foreground">Contact: {item.contactInfo}</p>}
+                {Array.isArray(item.photos) && item.photos.length > 0 && (
+                  <div className="flex gap-1.5 flex-wrap pt-1.5">
+                    {(item.photos as string[]).map((photo, i) => (
+                      <a
+                        key={i}
+                        href={photo}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        title="Open full size in new tab"
+                      >
+                        <img
+                          src={photo}
+                          alt={`lost item photo ${i + 1}`}
+                          className="w-14 h-14 object-cover rounded-md border hover:opacity-80 transition-opacity"
+                          data-testid={`img-admin-lost-photo-${item.id}-${i}`}
+                        />
+                      </a>
+                    ))}
+                  </div>
+                )}
               </CardContent>
             </Card>
           ))}
