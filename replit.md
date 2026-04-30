@@ -131,3 +131,10 @@ Accident-report and lost-item photos are stored in Replit App Storage (Google Cl
 - **Serving** — read access via `GET /api/storage/objects/<path>` (handled by `routes/storage.ts`, streams from GCS with ACL check). Frontend uses `resolvePhotoSrc` (`artifacts/mycarqr/src/lib/photoUrl.ts`) to map `/objects/...` → `/api/storage/objects/...`; legacy data URLs pass through unchanged.
 - **Renderers updated**: `accident-reports.tsx`, `lost-items.tsx`, `admin.tsx` (accidents + lost-items thumbs/links).
 - **Schema unchanged**: `accident_reports.photos` and `lost_items.photos` remain `jsonb` arrays of strings — they now hold either a `/objects/...` path or a legacy `data:` URL. No migration of historical rows was performed.
+
+## Deployment Notes
+
+- Deployment target: `autoscale` with `router = "application"` (multi-artifact). Configured in `.replit`.
+- `.replit` `[[ports]]` mappings are sensitive — do NOT remove the `8082 → 3003` entry even though no artifact owns it. It must stay alongside `8080 → 8080` (api-server), `8081 → 80` (mockup-sandbox), and `18531 → 3000` (mycarqr). Removing `8082` causes the autoscale deployer to fall back to the legacy single-port path and fail with "no run command, multiple ports".
+- Do not start ad-hoc servers on unforwarded ports during debugging — Replit auto-records new bindings into `.replit` `[[ports]]`, which can also break autoscale.
+- To safely modify `.replit`, use the `verifyAndReplaceDotReplit` callback (the file is system-protected against direct edits).
