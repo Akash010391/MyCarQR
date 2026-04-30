@@ -158,23 +158,15 @@ overrides:
   # drizzle-kit uses esbuild internally on an older version that's vulnerable, this overrides it
   "@esbuild-kit/esm-loader": "npm:tsx@^4.21.0"
   esbuild: "0.27.3"
-  # Security: patch transitive vulnerabilities (Apr 2026 dependency audit).
-  # All targets are non-breaking patch/minor bumps within the existing major version
-  # except lodash which has been API-stable for years.
-  picomatch: "^2.3.2"     # 2.3.1 -> 2.3.2 (GHSA-3v7f, GHSA-c2c7-rcm5-vvqj ReDoS)
-  "vite>picomatch": "^4.0.4"  # 4.0.3 -> 4.0.4 same advisories on the 4.x line
+  # Security overrides for transitive vulnerabilities.
+  picomatch: "^2.3.2"
+  "vite>picomatch": "^4.0.4"
   "fdir>picomatch": "^4.0.4"
   "tinyglobby>picomatch": "^4.0.4"
-  "path-to-regexp": "^8.4.2"  # 8.3.0 -> 8.4.2 (GHSA-27v5, GHSA-j3q9 ReDoS)
-  postcss: "^8.5.10"          # 8.5.8 -> 8.5.10 (GHSA-qx2v parse error)
-  yaml: "^2.8.3"              # 2.8.2 -> 2.8.3 (GHSA-48c2 DoS)
-  "brace-expansion": "^2.0.3" # 2.0.2 -> 2.0.3 (GHSA-f886 ReDoS)
-  lodash: "^4.18.1"           # 4.17.23 -> 4.18.1 (GHSA-r5fr high CVE, GHSA-f23m moderate)
-  # uuid 8/9 -> 14 (GHSA-w5hq insecure RNG). uuid 14 is ESM-only, but Node 24
-  # (the runtime declared in .replit "modules") supports require(esm) natively,
-  # so the CJS callers in @google-cloud/storage / gaxios load it transparently.
-  # Verified at runtime: GCS upload + signed URL paths still work.
+  "path-to-regexp": "^8.4.2"
+  postcss: "^8.5.10"
+  yaml: "^2.8.3"
+  "brace-expansion": "^2.0.3"
+  lodash: "^4.18.1"
   uuid: "^14.0.0"
-  # @tootallnate/once 2 -> 3 (GHSA-vpq2 prototype pollution). Same reasoning —
-  # http-proxy-agent 5 requires it via CJS but Node 24 require(esm) handles it.
   "@tootallnate/once": "^3.0.1"
