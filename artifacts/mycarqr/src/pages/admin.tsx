@@ -7,6 +7,7 @@ import {
   useGetAdminAccidentReports, useGetAdminLostItems,
   useGetAdminStickerOrders, useUpdateStickerOrder,
   useGetMe,
+  type AccidentReport, type LostItem,
 } from "@workspace/api-client-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -579,9 +580,26 @@ function AlertsTab() {
 }
 
 // ─── Accident Reports Tab ─────────────────────────────────────────────────────
+function formatLocation(
+  locationLabel?: string,
+  latitude?: string,
+  longitude?: string,
+): string | null {
+  if (locationLabel && locationLabel.trim().length > 0) return locationLabel;
+  if (latitude && longitude) {
+    const lat = Number(latitude);
+    const lng = Number(longitude);
+    if (Number.isFinite(lat) && Number.isFinite(lng)) {
+      return `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+    }
+    return `${latitude}, ${longitude}`;
+  }
+  return null;
+}
+
 function AccidentReportsTab() {
   const { data, isLoading } = useGetAdminAccidentReports({ limit: 50 });
-  const reports = (data?.reports ?? []) as any[];
+  const reports: AccidentReport[] = data?.reports ?? [];
 
   return (
     <div className="space-y-3">
@@ -592,47 +610,63 @@ function AccidentReportsTab() {
         <p className="text-sm text-muted-foreground text-center py-8">No accident reports yet</p>
       ) : (
         <div className="space-y-2">
-          {reports.map((r: any) => (
-            <Card key={r.id}>
-              <CardContent className="p-3 space-y-1">
-                <div className="flex items-center justify-between gap-2">
-                  <p className="text-sm font-medium flex items-center gap-1.5">
-                    <AlertTriangle className="w-3.5 h-3.5 text-red-500" />
-                    {r.vehicleNumber || `Vehicle #${r.vehicleId}`}
-                  </p>
-                  <p className="text-xs text-muted-foreground shrink-0">{new Date(r.createdAt).toLocaleDateString("en-IN")}</p>
-                </div>
-                {r.description && <p className="text-xs text-muted-foreground line-clamp-2">{r.description}</p>}
-                {r.location && <p className="text-xs text-muted-foreground">📍 {r.location}</p>}
-                {r.reporterName && <p className="text-xs text-muted-foreground">Reported by: {r.reporterName}</p>}
-                {Array.isArray(r.photos) && r.photos.length > 0 && (
-                  <div className="flex gap-1.5 flex-wrap pt-1.5">
-                    {(r.photos as string[])
-                      .filter((p) => typeof p === "string" && (p.startsWith("data:image/") || p.startsWith("/objects/")))
-                      .map((photo, i) => {
-                        const src = resolvePhotoSrc(photo);
-                        return (
-                          <a
-                            key={i}
-                            href={src}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            title="Open full size in new tab"
-                          >
-                            <img
-                              src={src}
-                              alt={`accident photo ${i + 1}`}
-                              className="w-14 h-14 object-cover rounded-md border hover:opacity-80 transition-opacity"
-                              data-testid={`img-admin-accident-photo-${r.id}-${i}`}
-                            />
-                          </a>
-                        );
-                      })}
+          {reports.map((r) => {
+            const location = formatLocation(r.locationLabel, r.latitude, r.longitude);
+            return (
+              <Card key={r.id}>
+                <CardContent className="p-3 space-y-1">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-sm font-medium flex items-center gap-1.5">
+                      <AlertTriangle className="w-3.5 h-3.5 text-red-500" />
+                      {r.vehicleNumber || `Vehicle #${r.vehicleId}`}
+                    </p>
+                    <p className="text-xs text-muted-foreground shrink-0">{new Date(r.reportedAt).toLocaleDateString("en-IN")}</p>
                   </div>
-                )}
-              </CardContent>
-            </Card>
-          ))}
+                  {r.description && (
+                    <p
+                      className="text-xs text-muted-foreground line-clamp-2"
+                      data-testid={`text-admin-accident-description-${r.id}`}
+                    >
+                      {r.description}
+                    </p>
+                  )}
+                  {location && (
+                    <p
+                      className="text-xs text-muted-foreground"
+                      data-testid={`text-admin-accident-location-${r.id}`}
+                    >
+                      📍 {location}
+                    </p>
+                  )}
+                  {r.photos.length > 0 && (
+                    <div className="flex gap-1.5 flex-wrap pt-1.5">
+                      {r.photos
+                        .filter((p) => typeof p === "string" && (p.startsWith("data:image/") || p.startsWith("/objects/")))
+                        .map((photo, i) => {
+                          const src = resolvePhotoSrc(photo);
+                          return (
+                            <a
+                              key={i}
+                              href={src}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              title="Open full size in new tab"
+                            >
+                              <img
+                                src={src}
+                                alt={`accident photo ${i + 1}`}
+                                className="w-14 h-14 object-cover rounded-md border hover:opacity-80 transition-opacity"
+                                data-testid={`img-admin-accident-photo-${r.id}-${i}`}
+                              />
+                            </a>
+                          );
+                        })}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
       )}
     </div>
@@ -642,7 +676,7 @@ function AccidentReportsTab() {
 // ─── Lost Items Tab ───────────────────────────────────────────────────────────
 function LostItemsTab() {
   const { data, isLoading } = useGetAdminLostItems({ limit: 50 });
-  const items = (data?.items ?? []) as any[];
+  const items: LostItem[] = data?.items ?? [];
 
   return (
     <div className="space-y-3">
@@ -653,47 +687,71 @@ function LostItemsTab() {
         <p className="text-sm text-muted-foreground text-center py-8">No lost item reports yet</p>
       ) : (
         <div className="space-y-2">
-          {items.map((item: any) => (
-            <Card key={item.id}>
-              <CardContent className="p-3 space-y-1">
-                <div className="flex items-center justify-between gap-2">
-                  <p className="text-sm font-medium flex items-center gap-1.5">
-                    <KeyRound className="w-3.5 h-3.5 text-blue-500" />
-                    {item.vehicleNumber || `Vehicle #${item.vehicleId}`}
-                    {item.itemName && <span className="font-normal text-muted-foreground">— {item.itemName}</span>}
-                  </p>
-                  <p className="text-xs text-muted-foreground shrink-0">{new Date(item.createdAt).toLocaleDateString("en-IN")}</p>
-                </div>
-                {item.description && <p className="text-xs text-muted-foreground line-clamp-2">{item.description}</p>}
-                {item.contactInfo && <p className="text-xs text-muted-foreground">Contact: {item.contactInfo}</p>}
-                {Array.isArray(item.photos) && item.photos.length > 0 && (
-                  <div className="flex gap-1.5 flex-wrap pt-1.5">
-                    {(item.photos as string[])
-                      .filter((p) => typeof p === "string" && (p.startsWith("data:image/") || p.startsWith("/objects/")))
-                      .map((photo, i) => {
-                        const src = resolvePhotoSrc(photo);
-                        return (
-                          <a
-                            key={i}
-                            href={src}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            title="Open full size in new tab"
-                          >
-                            <img
-                              src={src}
-                              alt={`lost item photo ${i + 1}`}
-                              className="w-14 h-14 object-cover rounded-md border hover:opacity-80 transition-opacity"
-                              data-testid={`img-admin-lost-photo-${item.id}-${i}`}
-                            />
-                          </a>
-                        );
-                      })}
+          {items.map((item) => {
+            const location = formatLocation(item.locationLabel, item.latitude, item.longitude);
+            return (
+              <Card key={item.id}>
+                <CardContent className="p-3 space-y-1">
+                  <div className="flex items-center justify-between gap-2">
+                    <p className="text-sm font-medium flex items-center gap-1.5">
+                      <KeyRound className="w-3.5 h-3.5 text-blue-500" />
+                      {item.vehicleNumber || `Vehicle #${item.vehicleId}`}
+                    </p>
+                    <p className="text-xs text-muted-foreground shrink-0">{new Date(item.reportedAt).toLocaleDateString("en-IN")}</p>
                   </div>
-                )}
-              </CardContent>
-            </Card>
-          ))}
+                  {item.message && (
+                    <p
+                      className="text-xs text-muted-foreground line-clamp-3 whitespace-pre-wrap"
+                      data-testid={`text-admin-lost-message-${item.id}`}
+                    >
+                      {item.message}
+                    </p>
+                  )}
+                  {item.finderContact && (
+                    <p
+                      className="text-xs text-muted-foreground"
+                      data-testid={`text-admin-lost-contact-${item.id}`}
+                    >
+                      Contact: {item.finderContact}
+                    </p>
+                  )}
+                  {location && (
+                    <p
+                      className="text-xs text-muted-foreground"
+                      data-testid={`text-admin-lost-location-${item.id}`}
+                    >
+                      📍 {location}
+                    </p>
+                  )}
+                  {item.photos.length > 0 && (
+                    <div className="flex gap-1.5 flex-wrap pt-1.5">
+                      {item.photos
+                        .filter((p) => typeof p === "string" && (p.startsWith("data:image/") || p.startsWith("/objects/")))
+                        .map((photo, i) => {
+                          const src = resolvePhotoSrc(photo);
+                          return (
+                            <a
+                              key={i}
+                              href={src}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              title="Open full size in new tab"
+                            >
+                              <img
+                                src={src}
+                                alt={`lost item photo ${i + 1}`}
+                                className="w-14 h-14 object-cover rounded-md border hover:opacity-80 transition-opacity"
+                                data-testid={`img-admin-lost-photo-${item.id}-${i}`}
+                              />
+                            </a>
+                          );
+                        })}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
       )}
     </div>
