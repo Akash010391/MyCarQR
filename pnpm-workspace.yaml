@@ -158,3 +158,21 @@ overrides:
   # drizzle-kit uses esbuild internally on an older version that's vulnerable, this overrides it
   "@esbuild-kit/esm-loader": "npm:tsx@^4.21.0"
   esbuild: "0.27.3"
+  # Security: patch transitive vulnerabilities (Apr 2026 dependency audit).
+  # All targets are non-breaking patch/minor bumps within the existing major version
+  # except lodash which has been API-stable for years.
+  picomatch: "^2.3.2"     # 2.3.1 -> 2.3.2 (GHSA-3v7f, GHSA-c2c7-rcm5-vvqj ReDoS)
+  "vite>picomatch": "^4.0.4"  # 4.0.3 -> 4.0.4 same advisories on the 4.x line
+  "fdir>picomatch": "^4.0.4"
+  "tinyglobby>picomatch": "^4.0.4"
+  "path-to-regexp": "^8.4.2"  # 8.3.0 -> 8.4.2 (GHSA-27v5, GHSA-j3q9 ReDoS)
+  postcss: "^8.5.10"          # 8.5.8 -> 8.5.10 (GHSA-qx2v parse error)
+  yaml: "^2.8.3"              # 2.8.2 -> 2.8.3 (GHSA-48c2 DoS)
+  "brace-expansion": "^2.0.3" # 2.0.2 -> 2.0.3 (GHSA-f886 ReDoS)
+  lodash: "^4.18.1"           # 4.17.23 -> 4.18.1 (GHSA-r5fr high CVE, GHSA-f23m moderate)
+  # NOT overridden: uuid 8.3.2/9.0.1 and @tootallnate/once 2.0.0.
+  # @google-cloud/storage 7.19.0 requires uuid "^8.0.0" verbatim and
+  # http-proxy-agent 5.0.0 requires @tootallnate/once "2" verbatim. The advisory fix
+  # versions (uuid 14, once 3) are ESM-only majors that are incompatible with
+  # those CJS callers, so forcing them would break GCS uploads. These will be
+  # cleared once @google-cloud/storage publishes a release that drops uuid 8.
