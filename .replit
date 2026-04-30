@@ -28,16 +28,8 @@ localPort = 8081
 externalPort = 80
 
 [[ports]]
-localPort = 8082
-externalPort = 3003
-
-[[ports]]
 localPort = 18531
 externalPort = 3000
-
-[[ports]]
-localPort = 18599
-externalPort = 4200
 
 [userenv]
 
