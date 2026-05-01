@@ -1,8 +1,21 @@
 import { useEffect, useRef, useState } from "react";
-import { ClerkProvider, SignIn, SignUp, Show, useClerk, useUser } from "@clerk/react";
+import {
+  ClerkProvider,
+  SignIn,
+  SignUp,
+  Show,
+  useClerk,
+  useUser,
+} from "@clerk/react";
 import { publishableKeyFromHost } from "@clerk/react/internal";
 import { shadcn } from "@clerk/themes";
-import { Switch, Route, useLocation, Router as WouterRouter, Redirect } from "wouter";
+import {
+  Switch,
+  Route,
+  useLocation,
+  Router as WouterRouter,
+  Redirect,
+} from "wouter";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -76,7 +89,8 @@ const clerkAppearance = {
   },
   elements: {
     rootBox: "w-full flex justify-center",
-    cardBox: "bg-white dark:bg-slate-900 rounded-2xl w-[440px] max-w-full overflow-hidden shadow-xl border border-slate-200 dark:border-slate-700",
+    cardBox:
+      "bg-white dark:bg-slate-900 rounded-2xl w-[440px] max-w-full overflow-hidden shadow-xl border border-slate-200 dark:border-slate-700",
     card: "!shadow-none !border-0 !bg-transparent !rounded-none",
     footer: "!shadow-none !border-0 !bg-transparent !rounded-none",
     headerTitle: "text-slate-900 font-bold text-2xl",
@@ -91,9 +105,12 @@ const clerkAppearance = {
     alertText: "text-red-600",
     logoBox: "flex justify-center",
     logoImage: "h-10 w-10",
-    socialButtonsBlockButton: "border border-slate-200 bg-white hover:bg-slate-50 rounded-lg",
-    formButtonPrimary: "bg-blue-800 hover:bg-blue-900 text-white rounded-lg font-semibold",
-    formFieldInput: "bg-slate-50 border border-slate-200 rounded-lg text-slate-900",
+    socialButtonsBlockButton:
+      "border border-slate-200 bg-white hover:bg-slate-50 rounded-lg",
+    formButtonPrimary:
+      "bg-blue-800 hover:bg-blue-900 text-white rounded-lg font-semibold",
+    formFieldInput:
+      "bg-slate-50 border border-slate-200 rounded-lg text-slate-900",
     footerAction: "bg-slate-50 border-t border-slate-100",
     dividerLine: "bg-slate-200",
     alert: "bg-red-50 border border-red-200 rounded-lg",
@@ -111,7 +128,11 @@ function SignInPage() {
           <h1 className="text-3xl font-bold text-white">Welcome back</h1>
           <p className="text-blue-200 mt-2">Sign in to manage your vehicles</p>
         </div>
-        <SignIn routing="path" path={`${basePath}/sign-in`} signUpUrl={`${basePath}/sign-up`} />
+        <SignIn
+          routing="path"
+          path={`${basePath}/sign-in`}
+          signUpUrl={`${basePath}/sign-up`}
+        />
       </div>
     </div>
   );
@@ -123,9 +144,15 @@ function SignUpPage() {
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold text-white">Create account</h1>
-          <p className="text-blue-200 mt-2">Join MyCarQR — your vehicle's smart identity</p>
+          <p className="text-blue-200 mt-2">
+            Join MyCarQR — your vehicle's smart identity
+          </p>
         </div>
-        <SignUp routing="path" path={`${basePath}/sign-up`} signInUrl={`${basePath}/sign-in`} />
+        <SignUp
+          routing="path"
+          path={`${basePath}/sign-up`}
+          signInUrl={`${basePath}/sign-in`}
+        />
       </div>
     </div>
   );
@@ -138,7 +165,10 @@ function ClerkQueryClientCacheInvalidator() {
   useEffect(() => {
     const unsubscribe = addListener(({ user }) => {
       const userId = user?.id ?? null;
-      if (prevUserIdRef.current !== undefined && prevUserIdRef.current !== userId) {
+      if (
+        prevUserIdRef.current !== undefined &&
+        prevUserIdRef.current !== userId
+      ) {
         queryClient.clear();
       }
       prevUserIdRef.current = userId;
@@ -162,7 +192,11 @@ function HomeRedirect() {
   );
 }
 
-function ProtectedRoute({ component: Component }: { component: React.ComponentType }) {
+function ProtectedRoute({
+  component: Component,
+}: {
+  component: React.ComponentType;
+}) {
   return (
     <>
       <Show when="signed-in">
@@ -182,12 +216,21 @@ function ClerkProviderWithRoutes() {
 
   return (
     <ClerkProvider
-      publishableKey={clerkPubKey!}
-      proxyUrl={clerkProxyUrl}
+      publishableKey={import.meta.env.VITE_CLERK_PUBLISHABLE_KEY}
       appearance={clerkAppearance}
       localization={{
-        signIn: { start: { title: "Sign in to MyCarQR", subtitle: "Welcome back! Please sign in to continue" } },
-        signUp: { start: { title: "Create your MyCarQR account", subtitle: "Welcome! Fill in your details to get started" } },
+        signIn: {
+          start: {
+            title: "Sign in to MyCarQR",
+            subtitle: "Welcome back! Please sign in to continue",
+          },
+        },
+        signUp: {
+          start: {
+            title: "Create your MyCarQR account",
+            subtitle: "Welcome! Fill in your details to get started",
+          },
+        },
       }}
       signInUrl={`${basePath}/sign-in`}
       signUpUrl={`${basePath}/sign-up`}
@@ -258,9 +301,7 @@ function ClerkProviderWithRoutes() {
             <Route path="/admin">
               {() => <ProtectedRoute component={Admin} />}
             </Route>
-            <Route path="/admin-login">
-              {() => <AdminLogin />}
-            </Route>
+            <Route path="/admin-login">{() => <AdminLogin />}</Route>
             <Route component={NotFound} />
           </Switch>
           <Toaster />
