@@ -586,15 +586,25 @@ function formatLocation(
   locationLabel?: string,
   latitude?: string,
   longitude?: string,
-): string | null {
-  if (locationLabel && locationLabel.trim().length > 0) return locationLabel;
+): { label: string; mapsUrl: string | null } | null {
+  let mapsUrl: string | null = null;
   if (latitude && longitude) {
     const lat = Number(latitude);
     const lng = Number(longitude);
     if (Number.isFinite(lat) && Number.isFinite(lng)) {
-      return `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+      mapsUrl = `https://maps.google.com/?q=${lat},${lng}`;
     }
-    return `${latitude}, ${longitude}`;
+  }
+  if (locationLabel && locationLabel.trim().length > 0) {
+    return { label: locationLabel, mapsUrl };
+  }
+  if (latitude && longitude) {
+    const lat = Number(latitude);
+    const lng = Number(longitude);
+    if (Number.isFinite(lat) && Number.isFinite(lng)) {
+      return { label: `${lat.toFixed(5)}, ${lng.toFixed(5)}`, mapsUrl };
+    }
+    return { label: `${latitude}, ${longitude}`, mapsUrl };
   }
   return null;
 }
@@ -683,7 +693,21 @@ function AccidentReportsTab() {
                       className="text-xs text-muted-foreground"
                       data-testid={`text-admin-accident-location-${r.id}`}
                     >
-                      📍 {location}
+                      📍{" "}
+                      {location.mapsUrl ? (
+                        <a
+                          href={location.mapsUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="underline hover:text-foreground"
+                          title="Open in Google Maps"
+                          data-testid={`link-admin-accident-location-${r.id}`}
+                        >
+                          {location.label}
+                        </a>
+                      ) : (
+                        location.label
+                      )}
                     </p>
                   )}
                   {r.photos.length > 0 && (
@@ -835,7 +859,21 @@ function LostItemsTab() {
                       className="text-xs text-muted-foreground"
                       data-testid={`text-admin-lost-location-${item.id}`}
                     >
-                      📍 {location}
+                      📍{" "}
+                      {location.mapsUrl ? (
+                        <a
+                          href={location.mapsUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="underline hover:text-foreground"
+                          title="Open in Google Maps"
+                          data-testid={`link-admin-lost-location-${item.id}`}
+                        >
+                          {location.label}
+                        </a>
+                      ) : (
+                        location.label
+                      )}
                     </p>
                   )}
                   {item.photos.length > 0 && (
