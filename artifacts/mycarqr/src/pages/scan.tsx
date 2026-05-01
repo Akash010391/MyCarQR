@@ -51,7 +51,11 @@ function vehicleEmoji(type?: string) {
 
 const ALLOWED_PHOTO_TYPES = new Set(["image/jpeg", "image/jpg", "image/png", "image/webp"]);
 const ALLOWED_PHOTO_EXT = /\.(jpe?g|png|webp)$/i;
-const MAX_PHOTO_BYTES = 10 * 1024 * 1024; // 10 MB original file
+const MAX_PHOTO_BYTES = 5 * 1024 * 1024; // 5 MB original file
+// Cap the source-image pixel count we'll attempt to decode/resize on-device.
+// Even a phone-camera photo rarely exceeds ~50 MP; rejecting bigger inputs up
+// front avoids freezing weak devices on hostile or accidentally-massive files.
+const MAX_PHOTO_MEGAPIXELS = 50;
 
 async function compressPhotoToBlob(file: File, maxSize = 1280): Promise<Blob> {
   return new Promise((resolve, reject) => {
@@ -59,6 +63,11 @@ async function compressPhotoToBlob(file: File, maxSize = 1280): Promise<Blob> {
     reader.onload = (e) => {
       const img = new Image();
       img.onload = () => {
+        const megapixels = (img.width * img.height) / 1_000_000;
+        if (megapixels > MAX_PHOTO_MEGAPIXELS) {
+          reject(new Error(`image is too large (max ${MAX_PHOTO_MEGAPIXELS} megapixels)`));
+          return;
+        }
         const canvas = document.createElement("canvas");
         const ratio = Math.min(maxSize / img.width, maxSize / img.height, 1);
         canvas.width = Math.max(1, Math.round(img.width * ratio));
@@ -69,6 +78,8 @@ async function compressPhotoToBlob(file: File, maxSize = 1280): Promise<Blob> {
           return;
         }
         ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+        // Re-encoding through canvas also strips EXIF and any embedded
+        // metadata, so what we upload is just pixel data.
         canvas.toBlob(
           (blob) => {
             if (blob) resolve(blob);
@@ -104,6 +115,19 @@ async function uploadPhotoToStorage(blob: Blob, fileName: string): Promise<strin
     throw new Error(`Upload failed: ${putRes.status}`);
   }
   return presigned.objectPath;
+}
+
+// Pull a user-friendly message out of an ApiError thrown by the generated
+// hooks. The server returns `{ error: "..." }` for 4xx responses (e.g. photo
+// rejected for being too large or the wrong dimensions). Falling back to a
+// generic message keeps the UI safe if something unexpected is thrown.
+function describeSubmitError(err: unknown, fallback: string): string {
+  const data = (err as { data?: unknown } | null)?.data;
+  if (data && typeof data === "object" && "error" in data) {
+    const message = (data as { error: unknown }).error;
+    if (typeof message === "string" && message.trim()) return message;
+  }
+  return fallback;
 }
 
 async function getLocation(): Promise<{ latitude: string; longitude: string; locationLabel: string } | null> {
@@ -160,7 +184,7 @@ function PhotoUploader({
           continue;
         }
         if (file.size > MAX_PHOTO_BYTES) {
-          errors.push(`${file.name || "File"}: too large (max 10 MB).`);
+          errors.push(`${file.name || "File"}: too large (max 5 MB).`);
           continue;
         }
         try {
@@ -239,7 +263,7 @@ function PhotoUploader({
         )}
       </div>
       <p className="text-xs text-muted-foreground mt-1.5">
-        JPG, PNG or WEBP · up to 10 MB each · max {max} photo{max === 1 ? "" : "s"}
+        JPG, PNG or WEBP · up to 5 MB each · max {max} photo{max === 1 ? "" : "s"}
       </p>
       <input
         ref={fileRef}
@@ -441,7 +465,12 @@ function AccidentTab({ qrCode }: { qrCode: string }) {
       { qrCode: qrCode!, data: { description, photos, ...location } },
       {
         onSuccess: () => setSent(true),
-        onError: () => toast({ title: "Failed to submit report", description: "Please try again.", variant: "destructive" }),
+        onError: (err) =>
+          toast({
+            title: "Failed to submit report",
+            description: describeSubmitError(err, "Please try again."),
+            variant: "destructive",
+          }),
       }
     );
   }
@@ -549,7 +578,12 @@ function FoundKeysTab({ qrCode }: { qrCode: string }) {
       { qrCode: qrCode!, data: { message, photos, finderContact: finderContact || undefined, ...location } },
       {
         onSuccess: () => setSent(true),
-        onError: () => toast({ title: "Failed to submit", description: "Please try again.", variant: "destructive" }),
+        onError: (err) =>
+          toast({
+            title: "Failed to submit",
+            description: describeSubmitError(err, "Please try again."),
+            variant: "destructive",
+          }),
       }
     );
   }

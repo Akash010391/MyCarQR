@@ -1,3 +1,5 @@
+import { imageSize } from "image-size";
+
 const ALLOWED_PREFIXES: Array<{ prefix: string; magic: number[][] }> = [
   {
     prefix: "data:image/jpeg;base64,",
@@ -77,6 +79,45 @@ export function validateImageMagic(bytes: Uint8Array): string | null {
   const matchesMagic = RAW_MAGIC_PATTERNS.some((m) => bytesMatch(bytes, m));
   if (!matchesMagic) {
     return "Photo content is not a valid JPEG, PNG, WEBP or GIF image";
+  }
+  return null;
+}
+
+// Reasonable bounds for user-uploaded photos. These are deliberately generous
+// for the long edge (the client compresses to ~1280px) but cap the total pixel
+// count so a hostile client can't send a 100k × 100k "image" that would blow
+// up image decoders downstream (compression bombs).
+const MIN_IMAGE_EDGE = 16;
+const MAX_IMAGE_EDGE = 8192;
+const MAX_IMAGE_MEGAPIXELS = 24;
+
+/**
+ * Decode the dimensions of an image header buffer using `image-size` and check
+ * they fall within sensible bounds. Pass a buffer containing at least the first
+ * ~256KB of the file — `image-size` only reads headers/markers, never the full
+ * pixel data.
+ */
+export function validateImageDimensions(bytes: Uint8Array): string | null {
+  let dims: { width?: number; height?: number };
+  try {
+    dims = imageSize(bytes);
+  } catch {
+    return "Photo dimensions could not be read";
+  }
+  const width = dims.width ?? 0;
+  const height = dims.height ?? 0;
+  if (!width || !height) {
+    return "Photo dimensions could not be read";
+  }
+  if (width < MIN_IMAGE_EDGE || height < MIN_IMAGE_EDGE) {
+    return `Photo is too small (must be at least ${MIN_IMAGE_EDGE}×${MIN_IMAGE_EDGE} pixels)`;
+  }
+  if (width > MAX_IMAGE_EDGE || height > MAX_IMAGE_EDGE) {
+    return `Photo is too large (max ${MAX_IMAGE_EDGE} pixels per side)`;
+  }
+  const megapixels = (width * height) / 1_000_000;
+  if (megapixels > MAX_IMAGE_MEGAPIXELS) {
+    return `Photo is too large (max ${MAX_IMAGE_MEGAPIXELS} megapixels)`;
   }
   return null;
 }

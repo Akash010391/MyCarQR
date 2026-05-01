@@ -9,7 +9,7 @@ import {
   ObjectNotFoundError,
 } from "../lib/objectStorage";
 
-const MAX_UPLOAD_BYTES = 10 * 1024 * 1024;
+const MAX_UPLOAD_BYTES = 5 * 1024 * 1024;
 const ALLOWED_UPLOAD_CONTENT_TYPES = new Set([
   "image/jpeg",
   "image/jpg",
@@ -47,7 +47,7 @@ router.post("/storage/uploads/request-url", async (req: Request, res: Response) 
     }
     if (typeof size !== "number" || size <= 0 || size > MAX_UPLOAD_BYTES) {
       res.status(400).json({
-        error: `File size must be between 1 byte and ${MAX_UPLOAD_BYTES} bytes`,
+        error: "Photo is too large. Please use an image under 5 MB.",
       });
       return;
     }

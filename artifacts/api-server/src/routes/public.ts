@@ -1,8 +1,18 @@
 import { Router } from "express";
 import { db, vehiclesTable, scanAlertsTable, usersTable, sosProfilesTable, accidentReportsTable, lostItemsTable } from "@workspace/db";
 import { eq, and, sql } from "drizzle-orm";
-import { validateScreenshot, validateImageMagic } from "../lib/imageValidation";
+import {
+  validateScreenshot,
+  validateImageMagic,
+  validateImageDimensions,
+} from "../lib/imageValidation";
 import { ObjectStorageService, ObjectNotFoundError } from "../lib/objectStorage";
+
+const MAX_PHOTO_BYTES = 5 * 1024 * 1024;
+// Image-size only needs the file header but JPEG SOF markers can sit hundreds
+// of KB into the file. 256 KB is a comfortable buffer for typical photos
+// without ever fetching the full object.
+const PHOTO_HEADER_BYTES = 256 * 1024;
 
 const router = Router();
 
@@ -71,16 +81,20 @@ async function validateObjectStoragePhoto(objectPath: string): Promise<string | 
     if (!size || size <= 0) {
       return "uploaded file is empty";
     }
-    if (size > 10 * 1024 * 1024) {
-      return "uploaded file exceeds the 10 MB limit";
+    if (size > MAX_PHOTO_BYTES) {
+      return "uploaded file is too large (max 5 MB)";
     }
-    const stream = file.createReadStream({ start: 0, end: 31 });
+    const stream = file.createReadStream({ start: 0, end: PHOTO_HEADER_BYTES - 1 });
     const chunks: Buffer[] = [];
     for await (const chunk of stream) {
       chunks.push(chunk as Buffer);
     }
     const head = new Uint8Array(Buffer.concat(chunks));
-    return validateImageMagic(head);
+    const magicError = validateImageMagic(head);
+    if (magicError) return magicError;
+    const dimError = validateImageDimensions(head);
+    if (dimError) return dimError;
+    return null;
   } catch (err) {
     if (err instanceof ObjectNotFoundError) {
       return "uploaded file could not be found";
