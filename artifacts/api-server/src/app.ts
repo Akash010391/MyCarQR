@@ -35,28 +35,43 @@ app.use(
 
 app.use(CLERK_PROXY_PATH, clerkProxyMiddleware());
 
-// In production, restrict CORS to a comma-separated allowlist from CORS_ORIGIN
-// (e.g. "https://mycarqr.app,https://www.mycarqr.app"). In dev (or if the env
-// var is unset) we reflect the request origin so Replit previews + localhost
-// keep working.
-const corsAllowlist = (process.env.CORS_ORIGIN ?? "")
+// In production, restrict CORS to an allowlist. Sources, in priority order:
+//   1. CORS_ORIGIN env var (comma-separated, e.g. "https://mycarqr.app").
+//   2. REPLIT_DOMAINS env var (always set by Replit on deployed apps),
+//      converted into "https://<domain>" entries.
+//   3. Empty allowlist -> same-origin only (cors origin:false). The SPA and
+//      the API are served from the same Replit proxy domain, so same-origin
+//      requests still work; only cross-origin browsers are blocked.
+// We deliberately never use `origin: true` with `credentials: true` in
+// production because that would let any site make authenticated cross-origin
+// requests against the API. We also never throw at startup -- a startup crash
+// blocks publishing entirely, which is worse than a missing CORS allowlist.
+const explicitCorsAllowlist = (process.env.CORS_ORIGIN ?? "")
   .split(",")
   .map((s) => s.trim())
   .filter(Boolean);
+const replitDomainsAllowlist = (process.env.REPLIT_DOMAINS ?? "")
+  .split(",")
+  .map((s) => s.trim())
+  .filter(Boolean)
+  .map((d) => `https://${d}`);
+const corsAllowlist =
+  explicitCorsAllowlist.length > 0
+    ? explicitCorsAllowlist
+    : replitDomainsAllowlist;
 if (process.env.NODE_ENV === "production" && corsAllowlist.length === 0) {
-  // Reflecting `origin: true` with `credentials: true` would allow any site to
-  // make authenticated cross-origin requests against the API, which is unsafe.
-  // Refuse to start so the operator notices and sets CORS_ORIGIN explicitly.
-  throw new Error(
-    "CORS_ORIGIN must be set in production (comma-separated list of allowed frontend origins, e.g. \"https://mycarqr.app,https://www.mycarqr.app\").",
+  logger.warn(
+    "CORS_ORIGIN and REPLIT_DOMAINS are both unset in production; cross-origin requests will be blocked. Set CORS_ORIGIN explicitly to allow specific origins.",
   );
 }
 app.use(
   cors({
     credentials: true,
     origin:
-      process.env.NODE_ENV === "production" && corsAllowlist.length > 0
-        ? corsAllowlist
+      process.env.NODE_ENV === "production"
+        ? corsAllowlist.length > 0
+          ? corsAllowlist
+          : false
         : true,
   }),
 );
