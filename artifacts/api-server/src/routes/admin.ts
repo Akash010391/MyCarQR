@@ -285,6 +285,74 @@ router.get("/admin/lost-items", requireAuth, requireAdmin, async (req, res) => {
   }
 });
 
+// POST /api/admin/accident-reports/:reportId/read
+router.post("/admin/accident-reports/:reportId/read", requireAuth, requireAdmin, async (req, res) => {
+  const reportId = parseInt(req.params.reportId as string, 10);
+  if (!Number.isFinite(reportId) || reportId <= 0) {
+    res.status(400).json({ error: "Invalid reportId" });
+    return;
+  }
+
+  try {
+    const [updated] = await db
+      .update(accidentReportsTable)
+      .set({ isRead: true })
+      .where(eq(accidentReportsTable.id, reportId))
+      .returning();
+
+    if (!updated) { res.status(404).json({ error: "Report not found" }); return; }
+
+    const [vehicle] = await db
+      .select({ vehicleNumber: vehiclesTable.vehicleNumber })
+      .from(vehiclesTable)
+      .where(eq(vehiclesTable.id, updated.vehicleId));
+
+    res.json({
+      ...updated,
+      photos: (updated.photos as string[]) || [],
+      vehicleNumber: vehicle?.vehicleNumber ?? "",
+      reportedAt: updated.reportedAt.toISOString(),
+    });
+  } catch (err) {
+    req.log.error(err, "Failed to mark accident report handled (admin)");
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+// POST /api/admin/lost-items/:itemId/read
+router.post("/admin/lost-items/:itemId/read", requireAuth, requireAdmin, async (req, res) => {
+  const itemId = parseInt(req.params.itemId as string, 10);
+  if (!Number.isFinite(itemId) || itemId <= 0) {
+    res.status(400).json({ error: "Invalid itemId" });
+    return;
+  }
+
+  try {
+    const [updated] = await db
+      .update(lostItemsTable)
+      .set({ isRead: true })
+      .where(eq(lostItemsTable.id, itemId))
+      .returning();
+
+    if (!updated) { res.status(404).json({ error: "Item not found" }); return; }
+
+    const [vehicle] = await db
+      .select({ vehicleNumber: vehiclesTable.vehicleNumber })
+      .from(vehiclesTable)
+      .where(eq(vehiclesTable.id, updated.vehicleId));
+
+    res.json({
+      ...updated,
+      photos: (updated.photos as string[]) || [],
+      vehicleNumber: vehicle?.vehicleNumber ?? "",
+      reportedAt: updated.reportedAt.toISOString(),
+    });
+  } catch (err) {
+    req.log.error(err, "Failed to mark lost item handled (admin)");
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
 // ─── Payment Settings ─────────────────────────────────────────────────────────
 
 // PUT /api/admin/payment-settings

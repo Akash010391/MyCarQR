@@ -5,6 +5,7 @@ import {
   useGetPaymentSettings, useUpdatePaymentSettings, useAdminUpgradeUser,
   useGetQrSettings, useUpdateQrSettings,
   useGetAdminAccidentReports, useGetAdminLostItems,
+  useMarkAdminAccidentReportRead, useMarkAdminLostItemRead,
   useGetAdminStickerOrders, useUpdateStickerOrder,
   useGetMe,
   type AccidentReport, type LostItem,
@@ -18,6 +19,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient } from "@/lib/queryClient";
 import { STICKER_DESIGNS, generateStickerPDF, type StickerDesign } from "@/lib/sticker-pdf";
@@ -600,25 +602,71 @@ function formatLocation(
 function AccidentReportsTab() {
   const { data, isLoading } = useGetAdminAccidentReports({ limit: 50 });
   const reports: AccidentReport[] = data?.reports ?? [];
+  const { toast } = useToast();
+  const [hideHandled, setHideHandled] = useState(false);
+
+  const markRead = useMarkAdminAccidentReportRead({
+    mutation: {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: ["/api/admin/accident-reports"] });
+        toast({ title: "Marked as handled" });
+      },
+      onError: () => {
+        toast({ title: "Failed to mark as handled", variant: "destructive" });
+      },
+    },
+  });
+
+  const visibleReports = hideHandled ? reports.filter(r => !r.isRead) : reports;
+  const unreadCount = reports.filter(r => !r.isRead).length;
 
   return (
     <div className="space-y-3">
-      <p className="text-xs text-muted-foreground">{data?.total ?? 0} accident reports</p>
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-xs text-muted-foreground">
+          {data?.total ?? 0} accident reports{unreadCount > 0 ? ` · ${unreadCount} unread` : ""}
+        </p>
+        <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer">
+          <span>Hide handled</span>
+          <Switch
+            checked={hideHandled}
+            onCheckedChange={setHideHandled}
+            data-testid="switch-admin-hide-handled-accidents"
+          />
+        </label>
+      </div>
       {isLoading ? (
         <div className="space-y-3">{[...Array(4)].map((_, i) => <Skeleton key={i} className="h-16 rounded-lg" />)}</div>
-      ) : reports.length === 0 ? (
-        <p className="text-sm text-muted-foreground text-center py-8">No accident reports yet</p>
+      ) : visibleReports.length === 0 ? (
+        <p className="text-sm text-muted-foreground text-center py-8">
+          {hideHandled && reports.length > 0 ? "No unread accident reports" : "No accident reports yet"}
+        </p>
       ) : (
         <div className="space-y-2">
-          {reports.map((r) => {
+          {visibleReports.map((r) => {
             const location = formatLocation(r.locationLabel, r.latitude, r.longitude);
+            const isUnread = !r.isRead;
             return (
-              <Card key={r.id}>
+              <Card
+                key={r.id}
+                className={isUnread ? "border-l-4 border-l-red-500 bg-red-500/5" : ""}
+                data-testid={`card-admin-accident-${r.id}`}
+                data-unread={isUnread ? "true" : "false"}
+              >
                 <CardContent className="p-3 space-y-1">
                   <div className="flex items-center justify-between gap-2">
                     <p className="text-sm font-medium flex items-center gap-1.5">
                       <AlertTriangle className="w-3.5 h-3.5 text-red-500" />
                       {r.vehicleNumber || `Vehicle #${r.vehicleId}`}
+                      {isUnread && (
+                        <Badge
+                          variant="destructive"
+                          className="text-[10px] px-1.5 py-0 h-4"
+                          data-testid={`badge-admin-accident-unread-${r.id}`}
+                        >
+                          Unread
+                        </Badge>
+                      )}
                     </p>
                     <p className="text-xs text-muted-foreground shrink-0">{new Date(r.reportedAt).toLocaleDateString("en-IN")}</p>
                   </div>
@@ -663,6 +711,28 @@ function AccidentReportsTab() {
                         })}
                     </div>
                   )}
+                  <div className="flex justify-end pt-1.5">
+                    {isUnread ? (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-7 text-xs"
+                        disabled={markRead.isPending}
+                        onClick={() => markRead.mutate({ reportId: r.id })}
+                        data-testid={`button-admin-accident-mark-handled-${r.id}`}
+                      >
+                        <CheckCircle className="w-3.5 h-3.5 mr-1" />
+                        Mark as handled
+                      </Button>
+                    ) : (
+                      <span
+                        className="text-[11px] text-muted-foreground inline-flex items-center gap-1"
+                        data-testid={`text-admin-accident-handled-${r.id}`}
+                      >
+                        <CheckCircle className="w-3 h-3 text-green-600" /> Handled
+                      </span>
+                    )}
+                  </div>
                 </CardContent>
               </Card>
             );
@@ -677,25 +747,70 @@ function AccidentReportsTab() {
 function LostItemsTab() {
   const { data, isLoading } = useGetAdminLostItems({ limit: 50 });
   const items: LostItem[] = data?.items ?? [];
+  const { toast } = useToast();
+  const [hideHandled, setHideHandled] = useState(false);
+
+  const markRead = useMarkAdminLostItemRead({
+    mutation: {
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: ["/api/admin/lost-items"] });
+        toast({ title: "Marked as handled" });
+      },
+      onError: () => {
+        toast({ title: "Failed to mark as handled", variant: "destructive" });
+      },
+    },
+  });
+
+  const visibleItems = hideHandled ? items.filter(i => !i.isRead) : items;
+  const unreadCount = items.filter(i => !i.isRead).length;
 
   return (
     <div className="space-y-3">
-      <p className="text-xs text-muted-foreground">{data?.total ?? 0} lost item reports</p>
+      <div className="flex items-center justify-between gap-2">
+        <p className="text-xs text-muted-foreground">
+          {data?.total ?? 0} lost item reports{unreadCount > 0 ? ` · ${unreadCount} unread` : ""}
+        </p>
+        <label className="flex items-center gap-2 text-xs text-muted-foreground cursor-pointer">
+          <span>Hide handled</span>
+          <Switch
+            checked={hideHandled}
+            onCheckedChange={setHideHandled}
+            data-testid="switch-admin-hide-handled-lost"
+          />
+        </label>
+      </div>
       {isLoading ? (
         <div className="space-y-3">{[...Array(4)].map((_, i) => <Skeleton key={i} className="h-16 rounded-lg" />)}</div>
-      ) : items.length === 0 ? (
-        <p className="text-sm text-muted-foreground text-center py-8">No lost item reports yet</p>
+      ) : visibleItems.length === 0 ? (
+        <p className="text-sm text-muted-foreground text-center py-8">
+          {hideHandled && items.length > 0 ? "No unread lost item reports" : "No lost item reports yet"}
+        </p>
       ) : (
         <div className="space-y-2">
-          {items.map((item) => {
+          {visibleItems.map((item) => {
             const location = formatLocation(item.locationLabel, item.latitude, item.longitude);
+            const isUnread = !item.isRead;
             return (
-              <Card key={item.id}>
+              <Card
+                key={item.id}
+                className={isUnread ? "border-l-4 border-l-blue-500 bg-blue-500/5" : ""}
+                data-testid={`card-admin-lost-${item.id}`}
+                data-unread={isUnread ? "true" : "false"}
+              >
                 <CardContent className="p-3 space-y-1">
                   <div className="flex items-center justify-between gap-2">
                     <p className="text-sm font-medium flex items-center gap-1.5">
                       <KeyRound className="w-3.5 h-3.5 text-blue-500" />
                       {item.vehicleNumber || `Vehicle #${item.vehicleId}`}
+                      {isUnread && (
+                        <Badge
+                          className="text-[10px] px-1.5 py-0 h-4 bg-blue-500 hover:bg-blue-500"
+                          data-testid={`badge-admin-lost-unread-${item.id}`}
+                        >
+                          Unread
+                        </Badge>
+                      )}
                     </p>
                     <p className="text-xs text-muted-foreground shrink-0">{new Date(item.reportedAt).toLocaleDateString("en-IN")}</p>
                   </div>
@@ -748,6 +863,28 @@ function LostItemsTab() {
                         })}
                     </div>
                   )}
+                  <div className="flex justify-end pt-1.5">
+                    {isUnread ? (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="h-7 text-xs"
+                        disabled={markRead.isPending}
+                        onClick={() => markRead.mutate({ itemId: item.id })}
+                        data-testid={`button-admin-lost-mark-handled-${item.id}`}
+                      >
+                        <CheckCircle className="w-3.5 h-3.5 mr-1" />
+                        Mark as handled
+                      </Button>
+                    ) : (
+                      <span
+                        className="text-[11px] text-muted-foreground inline-flex items-center gap-1"
+                        data-testid={`text-admin-lost-handled-${item.id}`}
+                      >
+                        <CheckCircle className="w-3 h-3 text-green-600" /> Handled
+                      </span>
+                    )}
+                  </div>
                 </CardContent>
               </Card>
             );

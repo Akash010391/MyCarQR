@@ -987,6 +987,27 @@ paths:
                     type: integer
                 required: [reports, total]
 
+  /admin/accident-reports/{reportId}/read:
+    post:
+      operationId: markAdminAccidentReportRead
+      tags: [admin]
+      summary: Mark accident report as handled (admin only)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: reportId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Updated report
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AccidentReport"
+
   /admin/lost-items:
     get:
       operationId: getAdminLostItems
@@ -1015,6 +1036,27 @@ paths:
                   total:
                     type: integer
                 required: [items, total]
+
+  /admin/lost-items/{itemId}/read:
+    post:
+      operationId: markAdminLostItemRead
+      tags: [admin]
+      summary: Mark lost item report as handled (admin only)
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: itemId
+          in: path
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Updated report
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LostItem"
 
   /sticker-orders:
     post:

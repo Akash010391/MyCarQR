@@ -883,6 +883,26 @@ export const GetAdminAccidentReportsResponse = zod.object({
 });
 
 /**
+ * @summary Mark accident report as handled (admin only)
+ */
+export const MarkAdminAccidentReportReadParams = zod.object({
+  reportId: zod.coerce.number(),
+});
+
+export const MarkAdminAccidentReportReadResponse = zod.object({
+  id: zod.number(),
+  vehicleId: zod.number(),
+  vehicleNumber: zod.string().optional(),
+  description: zod.string(),
+  photos: zod.array(zod.string()),
+  latitude: zod.string().optional(),
+  longitude: zod.string().optional(),
+  locationLabel: zod.string().optional(),
+  reportedAt: zod.string(),
+  isRead: zod.boolean(),
+});
+
+/**
  * @summary List all lost item reports (admin only)
  */
 export const getAdminLostItemsQueryLimitDefault = 50;
@@ -908,6 +928,27 @@ export const GetAdminLostItemsResponse = zod.object({
     }),
   ),
   total: zod.number(),
+});
+
+/**
+ * @summary Mark lost item report as handled (admin only)
+ */
+export const MarkAdminLostItemReadParams = zod.object({
+  itemId: zod.coerce.number(),
+});
+
+export const MarkAdminLostItemReadResponse = zod.object({
+  id: zod.number(),
+  vehicleId: zod.number(),
+  vehicleNumber: zod.string().optional(),
+  message: zod.string(),
+  photos: zod.array(zod.string()),
+  latitude: zod.string().optional(),
+  longitude: zod.string().optional(),
+  locationLabel: zod.string().optional(),
+  finderContact: zod.string().optional(),
+  reportedAt: zod.string(),
+  isRead: zod.boolean(),
 });
 
 /**

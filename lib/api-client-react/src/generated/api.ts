@@ -3838,6 +3838,93 @@ export function useGetAdminAccidentReports<
 }
 
 /**
+ * @summary Mark accident report as handled (admin only)
+ */
+export const getMarkAdminAccidentReportReadUrl = (reportId: number) => {
+  return `/api/admin/accident-reports/${reportId}/read`;
+};
+
+export const markAdminAccidentReportRead = async (
+  reportId: number,
+  options?: RequestInit,
+): Promise<AccidentReport> => {
+  return customFetch<AccidentReport>(
+    getMarkAdminAccidentReportReadUrl(reportId),
+    {
+      ...options,
+      method: "POST",
+    },
+  );
+};
+
+export const getMarkAdminAccidentReportReadMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof markAdminAccidentReportRead>>,
+    TError,
+    { reportId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof markAdminAccidentReportRead>>,
+  TError,
+  { reportId: number },
+  TContext
+> => {
+  const mutationKey = ["markAdminAccidentReportRead"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof markAdminAccidentReportRead>>,
+    { reportId: number }
+  > = (props) => {
+    const { reportId } = props ?? {};
+
+    return markAdminAccidentReportRead(reportId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type MarkAdminAccidentReportReadMutationResult = NonNullable<
+  Awaited<ReturnType<typeof markAdminAccidentReportRead>>
+>;
+
+export type MarkAdminAccidentReportReadMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Mark accident report as handled (admin only)
+ */
+export const useMarkAdminAccidentReportRead = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof markAdminAccidentReportRead>>,
+    TError,
+    { reportId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof markAdminAccidentReportRead>>,
+  TError,
+  { reportId: number },
+  TContext
+> => {
+  return useMutation(getMarkAdminAccidentReportReadMutationOptions(options));
+};
+
+/**
  * @summary List all lost item reports (admin only)
  */
 export const getGetAdminLostItemsUrl = (params?: GetAdminLostItemsParams) => {
@@ -3933,6 +4020,90 @@ export function useGetAdminLostItems<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * @summary Mark lost item report as handled (admin only)
+ */
+export const getMarkAdminLostItemReadUrl = (itemId: number) => {
+  return `/api/admin/lost-items/${itemId}/read`;
+};
+
+export const markAdminLostItemRead = async (
+  itemId: number,
+  options?: RequestInit,
+): Promise<LostItem> => {
+  return customFetch<LostItem>(getMarkAdminLostItemReadUrl(itemId), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getMarkAdminLostItemReadMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof markAdminLostItemRead>>,
+    TError,
+    { itemId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof markAdminLostItemRead>>,
+  TError,
+  { itemId: number },
+  TContext
+> => {
+  const mutationKey = ["markAdminLostItemRead"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof markAdminLostItemRead>>,
+    { itemId: number }
+  > = (props) => {
+    const { itemId } = props ?? {};
+
+    return markAdminLostItemRead(itemId, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type MarkAdminLostItemReadMutationResult = NonNullable<
+  Awaited<ReturnType<typeof markAdminLostItemRead>>
+>;
+
+export type MarkAdminLostItemReadMutationError = ErrorType<unknown>;
+
+/**
+ * @summary Mark lost item report as handled (admin only)
+ */
+export const useMarkAdminLostItemRead = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof markAdminLostItemRead>>,
+    TError,
+    { itemId: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof markAdminLostItemRead>>,
+  TError,
+  { itemId: number },
+  TContext
+> => {
+  return useMutation(getMarkAdminLostItemReadMutationOptions(options));
+};
 
 /**
  * @summary Place a physical sticker order
