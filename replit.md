@@ -135,7 +135,8 @@ Accident-report and lost-item photos are stored in Replit App Storage (Google Cl
 
 ## Deployment Notes
 
-- Deployment target: `autoscale` with `router = "application"` (multi-artifact). Configured in `.replit`.
-- `.replit` `[[ports]]` mappings are sensitive — do NOT remove the `8082 → 3003` entry even though no artifact owns it. It must stay alongside `8080 → 8080` (api-server), `8081 → 80` (mockup-sandbox), and `18531 → 3000` (mycarqr). Removing `8082` causes the autoscale deployer to fall back to the legacy single-port path and fail with "no run command, multiple ports".
-- Do not start ad-hoc servers on unforwarded ports during debugging — Replit auto-records new bindings into `.replit` `[[ports]]`, which can also break autoscale.
+- Deployment target in `.replit` is currently `autoscale` with `router = "application"` (multi-artifact).
+- `.replit` declares 4 port mappings — one per artifact local port (`8080`, `8081`, `8082`, `18531`). All four are needed in development: removing any of them causes the workflow port-watcher to time out and SIGKILL the corresponding service, so the dev preview goes down.
+- **Autoscale incompatibility:** Replit's autoscale validator now requires "exactly one port to be exposed" (per `docs.replit.com/.../app-setup/ports`). With the multi-artifact layout the publish step fails pre-flight with `Multiple ports are configured (8080, 8081, 8082, 18531) but Autoscale deployments require exactly one port to be exposed`.
+- **Workaround:** Switch the deployment target to **Reserved VM** in the Deployments pane. Reserved VM allows multi-port containers and works with the existing `.replit` and per-artifact `production` configs unchanged. The deployment-target field can only be changed by the user from the Deployments UI; it cannot be flipped from code.
 - To safely modify `.replit`, use the `verifyAndReplaceDotReplit` callback (the file is system-protected against direct edits).
