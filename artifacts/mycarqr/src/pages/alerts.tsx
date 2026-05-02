@@ -33,10 +33,11 @@ export default function Alerts() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const { data: alerts, isLoading } = useGetAlerts(
+  const { data: alertsRaw, isLoading } = useGetAlerts(
     unreadOnly ? { unreadOnly: true } : {},
     { query: { queryKey: getGetAlertsQueryKey(unreadOnly ? { unreadOnly: true } : {}) } }
   );
+  const alerts = Array.isArray(alertsRaw) ? alertsRaw : [];
   const markRead = useMarkAlertRead();
   const markAllRead = useMarkAllAlertsRead();
 

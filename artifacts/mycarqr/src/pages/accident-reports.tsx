@@ -115,7 +115,8 @@ function ReportCard({ report }: { report: { id: number; vehicleId: number; vehic
 }
 
 export default function AccidentReportsPage() {
-  const { data: reports = [], isLoading } = useGetAccidentReports();
+  const { data: reportsRaw, isLoading } = useGetAccidentReports();
+  const reports = Array.isArray(reportsRaw) ? reportsRaw : [];
   const unread = reports.filter(r => !r.isRead).length;
 
   return (

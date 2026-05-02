@@ -113,7 +113,8 @@ function ItemCard({ item }: { item: { id: number; vehicleId: number; vehicleNumb
 }
 
 export default function LostItemsPage() {
-  const { data: items = [], isLoading } = useGetLostItems();
+  const { data: itemsRaw, isLoading } = useGetLostItems();
+  const items = Array.isArray(itemsRaw) ? itemsRaw : [];
   const unread = items.filter(i => !i.isRead).length;
 
   return (

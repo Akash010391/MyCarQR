@@ -2,141 +2,64 @@
 
 ## Overview
 
-MyCarQR — "Scan to Reach the Car Owner." A full-stack web app where car owners generate smart QR codes for their vehicles so anyone can contact them during parking issues without exposing personal details.
+MyCarQR is a full-stack web application designed to simplify contact between individuals and car owners regarding parking issues, without compromising personal privacy. It allows car owners to generate smart QR codes for their vehicles. The project aims to provide a robust platform for managing vehicles, generating QR codes, handling scan alerts, and facilitating emergency communications. MyCarQR also includes features for managing accident reports, lost items, and vehicle documents, along with a comprehensive admin panel for operational oversight and user management.
 
-pnpm workspace monorepo using TypeScript.
+## User Preferences
 
-## Stack
+- **Iterative Development**: I prefer an iterative approach to development, where features are built and reviewed incrementally.
+- **Clear Communication**: Please explain technical concepts and decisions in clear, concise language.
+- **Detailed Explanations**: Provide detailed explanations for significant code changes or architectural decisions.
+- **Ask Before Major Changes**: Consult with me before implementing any major changes to the codebase or architecture.
+- **No changes to `.replit`**: The `.replit` file is system-protected. Use the `verifyAndReplaceDotReplit` callback for any modifications.
+- **Object Storage**: Accident-report and lost-item photos should be stored in Replit App Storage (Google Cloud Storage), not as base64 inside the Postgres `photos` jsonb column.
 
-- **Monorepo tool**: pnpm workspaces
-- **Node.js version**: 24
-- **Package manager**: pnpm
-- **TypeScript version**: 5.9
-- **API framework**: Express 5
-- **Database**: PostgreSQL + Drizzle ORM
-- **Auth**: Clerk (Replit-managed, via proxy)
-- **Validation**: Zod (`zod/v4`), `drizzle-zod`
-- **API codegen**: Orval (from OpenAPI spec)
-- **Build**: esbuild (CJS bundle)
-- **Frontend**: React + Vite + Tailwind v4 + shadcn/ui + Wouter + TanStack Query
-- **QR generation**: `qrcode` npm package
+## System Architecture
 
-## Artifacts
+MyCarQR is a pnpm monorepo using TypeScript, built with Node.js 24. The application consists of two primary artifacts: a React+Vite frontend and an Express 5 API server.
 
-| Artifact | Path | Description |
-|---|---|---|
-| `artifacts/mycarqr` | `/` | React+Vite frontend (port 18531) |
-| `artifacts/api-server` | `/api` | Express API server (port 8080) |
+**UI/UX Decisions:**
+- The frontend is built with React, Vite, Tailwind v4, shadcn/ui, Wouter, and TanStack Query.
+- It supports dark/light mode toggling.
+- Design themes are available for QR codes, with both free and premium options.
+- UI elements like public legal pages, tabbed profile settings, and admin panels are consistently designed for clarity and usability.
 
-## Key Commands
+**Technical Implementations:**
+- **API Framework**: Express 5 for backend services.
+- **Database**: PostgreSQL with Drizzle ORM for data persistence.
+- **Authentication**: Clerk is used for user authentication (Replit-managed via proxy).
+- **Validation**: Zod is used for API schema validation.
+- **API Codegen**: Orval generates API client code from an OpenAPI specification.
+- **Build System**: esbuild is used for bundling the API server.
+- **QR Generation**: The `qrcode` npm package is used for generating QR codes, with advanced features like Error Correction Level H and custom logo overlays.
+- **Monorepo Structure**: The project is organized as a pnpm workspace with several internal packages:
+    - `lib/api-spec`: OpenAPI specification and Orval configuration.
+    - `lib/api-zod`: Generated Zod schemas.
+    - `lib/api-client-react`: Generated React Query hooks.
+    - `lib/db`: Drizzle ORM schema and database connection.
+- **Object Storage**: Photos for accident reports and lost items are stored in Google Cloud Storage via Replit App Storage. The API handles signed URL generation for uploads and secure serving of objects.
+- **Admin Panel**: A comprehensive admin panel with 10 tabs for managing users, vehicles, payments, sticker orders, and content (legal pages, FAQs, testimonials, support tickets). Access is restricted to `is_admin` users or an allowlist.
+- **Payment Workflow**: Implements a UPI payment process with screenshot uploads, admin review, and automated premium plan activation with expiry.
+- **Sticker PDF Generation**: Generates print-ready sticker PDFs (8x8 cm, 300 DPI, ECL-H) with various premium designs, incorporating dynamic QR codes and vehicle information.
+- **Dynamic Content**: Legal pages, FAQs, and testimonials are stored in the database and rendered dynamically, with default content fallback.
+- **Notification System**: Users can manage notification preferences.
+- **Support System**: Users can create support tickets, and admins can respond.
 
-- `pnpm run typecheck:libs` — build composite libs (db, api-zod, api-client-react)
-- `pnpm run typecheck` — full project typecheck
-- `pnpm --filter @workspace/api-spec run codegen` — regenerate API client from OpenAPI spec
-- `pnpm --filter @workspace/api-server run build` — build API server
-- `pnpm --filter @workspace/scripts run migrate-photos [-- --dry-run]` — one-off backfill that moves legacy `data:image/...;base64,...` photos out of `accident_reports.photos` and `lost_items.photos` into App Storage (`/objects/uploads/<uuid>`). Idempotent.
+**Feature Specifications:**
+- **Core Features**: Landing page, Clerk authentication, dashboard, vehicle management (add, edit, delete, QR toggle), QR code generation, public scan page (Alert Owner, Report Accident, Found Keys), emergency help.
+- **Alerts and Reports**: Scan alerts, accident reports (with photos, location), lost key returns (with finder contact, photos).
+- **User Profiles**: SOS Emergency Profile (contacts, blood group, medical notes), Document reminders, Privacy mode, Safety score per vehicle.
+- **Monetization**: Pricing page, premium upgrade flow, admin-configurable prices.
+- **Advanced QR Features**: QR Design Studio with themes, print-ready sticker PDFs, physical sticker orders with style selection and tracking.
+- **User Interaction**: Contact form, tabbed profile settings, notification preferences, help/support, testimonials.
 
-## Lib Packages
+## External Dependencies
 
-| Package | Description |
-|---|---|
-| `lib/api-spec` | OpenAPI spec + Orval codegen config |
-| `lib/api-zod` | Generated Zod schemas from OpenAPI |
-| `lib/api-client-react` | Generated React Query hooks from OpenAPI |
-| `lib/db` | Drizzle ORM schema + DB connection |
-
-## DB Schema Tables
-
-- `users` — Clerk user ID, email, plan (free/premium), isAdmin, premiumExpiresAt
-- `vehicles` — Vehicle info, QR code UUID, privacy settings, safety score
-- `scan_alerts` — Alerts sent when someone scans a QR
-- `vehicle_documents` — Insurance/pollution/registration expiry reminders
-- `sos_profiles` — Owner emergency contact + blood group + medical notes (1 per user)
-- `accident_reports` — Accident witness reports submitted via public scan page
-- `lost_items` — Found-key/lost-item reports submitted via public scan page
-- `payment_settings` — Singleton row: UPI ID, QR image (base64), prices, instructions
-- `payment_requests` — User payment submissions: plan, amount, screenshot, status (pending/approved/rejected), adminNote, expiresAt
-- `qr_settings` — Singleton row: brandName, tagline, ctaText, enabledThemes (jsonb), premiumThemes (jsonb)
-- `sticker_orders` — Physical sticker orders: user details, delivery address, product (basic_vinyl/premium_weatherproof/pack_of_3), amount, **stickerStyle** (midnight-carbon/light-premium/racing-red/electric-blue, nullable), **vehicleNumber** (snapshot copied at order time from the linked vehicle so admin print reflects the original number even if vehicle is renamed/deleted), payment screenshot, paymentStatus (pending/screenshot_uploaded/approved/rejected), orderStatus (pending/printed/shipped/delivered/cancelled), trackingNumber, adminNote
-
-### Sticker template assets
-
-Each of the 4 sticker designs ships in 3 square HD resolutions plus a legacy fallback:
-
-- `public/stickers/{slug}-512.png` — 512×512, used for small thumbnails (e.g. `my-orders` style badge)
-- `public/stickers/{slug}-1024.png` — 1024×1024, used in style-picker preview cards (`qr-studio`, `order-sticker`)
-- `public/stickers/{slug}-2048.png` — 2048×2048, used as the source template for the 300 DPI 8 cm sticker PDF
-- `public/stickers/{slug}.jpg` — legacy 1024×1024 JPEG kept as a back-compat fallback (`templateUrl`)
-- `public/stickers/_originals/` — original 1536×1024 WhatsApp uploads preserved as backup
-- Slugs: `midnight`, `light`, `red`, `blue` (square-padded with each design's brand bg color)
-- All resolution variants are exposed on `STICKER_DESIGNS` in `src/lib/sticker-pdf.ts` as `thumbnailUrl`, `previewUrl`, `printTemplateUrl`. PDF render uses the 2048 PNG; QR is regenerated fresh at 1200×1200 (ECL-H) and downsampled into the 320 px QR pad with `imageSmoothingQuality = "high"` for crisp print output.
-
-## Features
-
-- Landing page with hero, features, pricing, FAQ sections
-- Clerk authentication (sign-in/sign-up with OAuth)
-- Dashboard with stats, recent alerts, document warnings
-- Vehicle management (add, edit, delete, QR toggle)
-- QR code generation + download + share
-- Public scan page — 3 tabs: Alert Owner | Report Accident | Found Keys
-- Emergency Help button on scan page (shows SOS info if owner has enabled it)
-- Scan alerts with mark-read/mark-all-read
-- **Accident Reports** (`/accident-reports`) — witness reports with photos, location, mark-read
-- **Lost Key Returns** (`/lost-items`) — found-key messages with finder contact, photos, mark-read
-- **SOS Emergency Profile** (`/sos-profile`) — owner fills in emergency contacts, blood group, medical notes; visible to witnesses via QR scan
-- Document reminders with expiry status
-- Privacy mode (hides phone from public scan page)
-- Safety score per vehicle
-- Pricing page
-- **Upgrade Premium** (`/payment`) — UPI payment page: shows QR/UPI ID, screenshot upload, submit for admin review, request history
-- **Enhanced Admin Panel** (`/admin`) — 10 tabs: Overview stats, Users (with upgrade/downgrade), Vehicles, Payment Requests (approve/reject), Sticker Orders (approve/reject payment, set order status, tracking number), Payment Settings (UPI/QR/prices/instructions), QR Settings, Accidents, Lost Items, Alerts. Access is gated on `users.is_admin = true` OR a static email allowlist (`artifacts/api-server/src/lib/adminEmails.ts` — currently `aakashkaishyap2@gmail.com`, extendable via `ADMIN_EMAILS` env var). When an allowlisted user hits `/me` or any `/admin/*` route, the server auto-promotes their `is_admin` flag in the DB and backfills their email — preventing lock-out if they sign in via a different OAuth method that produces a new Clerk user_id. Email is resolved from Clerk session claims first, falling back to `clerkClient.users.getUser()` (Backend API) so it works without a custom JWT template.
-- **Payment Approval Workflow** — admin approves → user upgraded to premium with auto-expiry (30 days monthly / 365 days yearly); expiry auto-checked on GET /me
-- Dark/light mode toggle
-- **QR Design Studio** (`/vehicles/:id/qr-studio`) — Premium sticker editor with 8 themes. PNG/PDF export, 4 print-ready sticker PDFs with real WhatsApp logo templates (Midnight Carbon, Light Premium, Racing Red, Electric Blue), save designs to localStorage. "Order Print" button links to physical order page. Free=2 themes, Premium=all.
-- **Print-Ready Sticker PDFs (Template-based)** — 4 premium sticker designs at 8×8 cm / 300 DPI / ECL-H using uploaded logo templates as background: Midnight Carbon (black + gold), Light Premium (white + gold), Racing Red, Electric Blue. Each PDF: template image fills top 70%, real scannable QR overlays the decorative QR with white quiet-zone pad, bottom 30% has vehicle number + "Scan to Contact Owner" + "मालिक से संपर्क करें" + footer. Cut marks at 4 corners. Templates are bundled at `artifacts/mycarqr/public/stickers/{midnight,light,red,blue}.jpg` and loaded via `import.meta.env.BASE_URL`. If template fails to load, falls back to a plain accent-bordered design. Lib: `artifacts/mycarqr/src/lib/sticker-pdf.ts`.
-- **Physical Sticker Orders** (`/order-sticker`) — 4-step flow: product + **sticker style picker** (4 styles with image previews, persisted as `stickerStyle` on the order), delivery address, UPI payment + screenshot upload, confirmation. The chosen style is shown on `/my-orders` and the admin orders panel; admin gets a "Print PDF Sticker" button that downloads the order's PDF in the user's chosen style.
-- **My Orders** (`/my-orders`) — Track order status, upload payment screenshots for pending orders, view tracking numbers and admin notes.
-- **Vehicle Detail QR** — Upgraded to Error Correction Level H with centered "MQ" logo overlay drawn via Canvas 2D API.
-
-## Pricing
-
-- Free: 1 vehicle, basic QR, 5 alerts/month
-- Premium: ₹99/month or ₹599/year — unlimited vehicles, privacy mode, unlimited alerts, document reminders, safety score
-- Prices are admin-configurable via Payment Settings tab
-
-## Legal/Trust Pages, Tabbed Profile & Expanded Admin (Apr 2026)
-
-- **Public legal/trust pages**: `/about`, `/contact`, `/privacy`, `/terms`, `/refund`, `/shipping`, `/disclaimer` — markdown content stored in `legal_pages` table (DB-backed), rendered via `react-markdown` (no raw HTML), wrapped in shared `PublicPage` (header + footer). Admins edit content from Admin → Legal tab. **Pages never go blank**: if a slug has no DB row (e.g. fresh production deploy with empty `legal_pages` table) the API serves built-in default content from `artifacts/api-server/src/lib/defaultLegalContent.ts` so users always see real text instead of "couldn't load this page". The list endpoint also merges DB rows with defaults so the admin Legal tab always shows all 6 slugs.
-- **Deploy outside Replit**: `artifacts/mycarqr/vite.config.ts` no longer requires `PORT`/`BASE_PATH` env vars at build time (PORT is dev-server-only and defaults to 5173; BASE_PATH defaults to "/"). This unblocks `vite build` on Vercel/Render/Netlify/etc. without any env wiring. Replit dev still uses the values from `artifact.toml` because they remain set in the workflow env.
-- **Public footer** (`PublicFooter`) replaces landing-page footer; links to all legal pages.
-- **App footer** rendered inside `AppLayout`'s scroll area for signed-in pages.
-- **Contact form** (`POST /api/contact`) — public form with validation, hidden honeypot field, and per-IP rate limit (5 / 10 min). Messages flow into Admin → Messages with status workflow (new/read/replied/archived) and admin notes.
-- **Profile refactored to tabbed Settings hub** at `/profile?tab=...` with 8 tabs: Account (Clerk widget + plan badge), Vehicles, Subscription, Orders, Notifications, Emergency, Help, Settings (incl. **Danger Zone** delete-account that requires confirming the user's email; uses `DELETE /api/me` which wipes all user data inside a single DB transaction, then best-effort deletes the Clerk user).
-- **Notifications preferences** stored in `notification_preferences` (5 toggles). Endpoints: `GET/PUT /api/me/notifications`.
-- **Help/Support** — Public `faqs` table powers an accordion on the Help tab; users can also create support tickets (`/api/support-tickets` POST, `/api/me/support-tickets` GET) which admins respond to via `adminNote` from Admin → Tickets.
-- **Testimonials** stored in `testimonials` and curated by admins.
-- **5 new admin tabs**: Messages, Legal, FAQs, Testimonials, Tickets — each has full CRUD using a small shared `useAdminFetch` helper. All admin endpoints are gated by `requireAuth + requireAdmin`.
-- **DB schema additions**: `contact_messages`, `legal_pages`, `faqs`, `testimonials`, `support_tickets`, `notification_preferences`. Pushed via `pnpm --filter @workspace/db run db:push`. Default legal/FAQ content seeded.
-
-## Object Storage for Photos (Apr 2026)
-
-Accident-report and lost-item photos are stored in Replit App Storage (Google Cloud Storage), not as base64 inside the Postgres `photos` jsonb column.
-
-- **Required env vars** (auto-provisioned on Replit by `setupObjectStorage()`; documented in `.env.example`):
-  - `DEFAULT_OBJECT_STORAGE_BUCKET_ID` — GCS bucket name
-  - `PRIVATE_OBJECT_DIR` — bucket-prefixed path for new uploads (e.g. `/<bucket>/.private`)
-  - `PUBLIC_OBJECT_SEARCH_PATHS` — comma-separated public asset search paths
-- **Upload flow (frontend)** — `artifacts/mycarqr/src/pages/scan.tsx` PhotoUploader: compress image → `POST /api/storage/uploads/request-url` (zod-validated body: `{name, size, contentType}`, max 8 MB, image/* only) → returns `{uploadURL, objectPath}` → PUT bytes directly to the GCS presigned URL → store the `/objects/uploads/<uuid>` path in component state. Local preview uses a `blob:` URL via `URL.createObjectURL`.
-- **Submit** — `photos` field in accident/lost-item POST is now an array of object paths (`/objects/...`); legacy data URLs are still accepted and stored unchanged for backward compatibility.
-- **Server validation** — `artifacts/api-server/src/routes/public.ts` `validatePhotoArray` is async: for `/objects/...` paths it fetches the first 32 bytes from GCS and checks JPEG/PNG/WEBP/GIF magic via `validateImageMagic`; for `data:` URLs it falls back to the existing `validateScreenshot`.
-- **Serving** — read access via `GET /api/storage/objects/<path>` (handled by `routes/storage.ts`, streams from GCS with ACL check). Frontend uses `resolvePhotoSrc` (`artifacts/mycarqr/src/lib/photoUrl.ts`) to map `/objects/...` → `/api/storage/objects/...`; legacy data URLs pass through unchanged.
-- **Renderers updated**: `accident-reports.tsx`, `lost-items.tsx`, `admin.tsx` (accidents + lost-items thumbs/links).
-- **Schema unchanged**: `accident_reports.photos` and `lost_items.photos` remain `jsonb` arrays of strings — they now hold either a `/objects/...` path or a legacy `data:` URL. No migration of historical rows was performed.
-
-## Deployment Notes
-
-- Deployment target in `.replit` is currently `autoscale` with `router = "application"` (multi-artifact).
-- `.replit` declares 4 port mappings — one per artifact local port (`8080`, `8081`, `8082`, `18531`). All four are needed in development: removing any of them causes the workflow port-watcher to time out and SIGKILL the corresponding service, so the dev preview goes down.
-- **Autoscale incompatibility:** Replit's autoscale validator now requires "exactly one port to be exposed" (per `docs.replit.com/.../app-setup/ports`). With the multi-artifact layout the publish step fails pre-flight with `Multiple ports are configured (8080, 8081, 8082, 18531) but Autoscale deployments require exactly one port to be exposed`.
-- **Workaround:** Switch the deployment target to **Reserved VM** in the Deployments pane. Reserved VM allows multi-port containers and works with the existing `.replit` and per-artifact `production` configs unchanged. The deployment-target field can only be changed by the user from the Deployments UI; it cannot be flipped from code.
-- To safely modify `.replit`, use the `verifyAndReplaceDotReplit` callback (the file is system-protected against direct edits).
+- **Database**: PostgreSQL
+- **ORM**: Drizzle ORM
+- **Authentication**: Clerk (Replit-managed)
+- **Object Storage**: Google Cloud Storage (via Replit App Storage)
+- **Frontend Libraries**: React, Vite, Tailwind CSS, shadcn/ui, Wouter, TanStack Query
+- **Validation**: Zod
+- **API Codegen**: Orval
+- **QR Code Generation**: `qrcode` npm package
+- **Markdown Rendering**: `react-markdown`

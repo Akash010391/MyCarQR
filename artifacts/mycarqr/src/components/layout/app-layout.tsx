@@ -33,8 +33,10 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   const { signOut } = useClerk();
   const { data: me } = useGetMe();
   const { data: summary } = useGetDashboardSummary();
-  const { data: accidentReports = [] } = useGetAccidentReports();
-  const { data: lostItems = [] } = useGetLostItems();
+  const { data: accidentReportsRaw } = useGetAccidentReports();
+  const { data: lostItemsRaw } = useGetLostItems();
+  const accidentReports = Array.isArray(accidentReportsRaw) ? accidentReportsRaw : [];
+  const lostItems = Array.isArray(lostItemsRaw) ? lostItemsRaw : [];
 
   function toggleDark() {
     const next = dark ? "light" : "dark";

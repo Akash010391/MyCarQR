@@ -673,8 +673,12 @@ export default function QrStudio() {
   const brandName = qrSettingsData?.brandName ?? "MyCarQR";
   const tagline = qrSettingsData?.tagline ?? "Scan. Connect. Stay Safe.";
   const ctaText = qrSettingsData?.ctaText ?? "Scan to Connect";
-  const enabledThemes = (qrSettingsData?.enabledThemes as string[] | undefined) ?? ALL_TEMPLATES.map(t => t.id);
-  const premiumThemeIds = (qrSettingsData?.premiumThemes as string[] | undefined) ?? ALL_TEMPLATES.filter(t => t.isPremium).map(t => t.id);
+  const enabledThemes = Array.isArray(qrSettingsData?.enabledThemes)
+    ? (qrSettingsData.enabledThemes as string[])
+    : ALL_TEMPLATES.map(t => t.id);
+  const premiumThemeIds = Array.isArray(qrSettingsData?.premiumThemes)
+    ? (qrSettingsData.premiumThemes as string[])
+    : ALL_TEMPLATES.filter(t => t.isPremium).map(t => t.id);
 
   const TEMPLATES = ALL_TEMPLATES.filter(t => enabledThemes.includes(t.id)).map(t => ({
     ...t,

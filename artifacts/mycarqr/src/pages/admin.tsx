@@ -364,7 +364,8 @@ function VehiclesTab() {
 
 // ─── Payment Requests Tab ──────────────────────────────────────────────────────
 function PaymentRequestsTab() {
-  const { data: allRequests = [], isLoading } = useGetAdminPaymentRequests({});
+  const { data: allRequestsRaw, isLoading } = useGetAdminPaymentRequests({});
+  const allRequests = Array.isArray(allRequestsRaw) ? allRequestsRaw : [];
   const approve = useApprovePaymentRequest();
   const reject = useRejectPaymentRequest();
   const { toast } = useToast();
@@ -758,11 +759,14 @@ function QrSettingsTab() {
     setTagline(data.tagline);
     setCtaText(data.ctaText);
     setEnabledThemes(
-      (data.enabledThemes as string[]) ?? ALL_QR_THEMES.map((t) => t.id),
+      Array.isArray(data.enabledThemes)
+        ? (data.enabledThemes as string[])
+        : ALL_QR_THEMES.map((t) => t.id),
     );
     setPremiumThemes(
-      (data.premiumThemes as string[]) ??
-        ALL_QR_THEMES.filter((t) => t.isPremiumDefault).map((t) => t.id),
+      Array.isArray(data.premiumThemes)
+        ? (data.premiumThemes as string[])
+        : ALL_QR_THEMES.filter((t) => t.isPremiumDefault).map((t) => t.id),
     );
     setLoaded(true);
   }
@@ -908,7 +912,7 @@ function QrSettingsTab() {
 // ─── Alerts Tab ───────────────────────────────────────────────────────────────
 function AlertsTab() {
   const { data, isLoading } = useGetAdminAlerts({ limit: 50 });
-  const alerts = (data?.alerts ?? []) as any[];
+  const alerts = (Array.isArray(data?.alerts) ? data?.alerts : []) as any[];
 
   return (
     <div className="space-y-3">
@@ -980,7 +984,7 @@ function formatLocation(
 
 function AccidentReportsTab() {
   const { data, isLoading } = useGetAdminAccidentReports({ limit: 50 });
-  const reports: AccidentReport[] = data?.reports ?? [];
+  const reports: AccidentReport[] = Array.isArray(data?.reports) ? data.reports : [];
   const { toast } = useToast();
   const [hideHandled, setHideHandled] = useState(false);
 
@@ -1164,7 +1168,7 @@ function AccidentReportsTab() {
 // ─── Lost Items Tab ───────────────────────────────────────────────────────────
 function LostItemsTab() {
   const { data, isLoading } = useGetAdminLostItems({ limit: 50 });
-  const items: LostItem[] = data?.items ?? [];
+  const items: LostItem[] = Array.isArray(data?.items) ? data.items : [];
   const { toast } = useToast();
   const [hideHandled, setHideHandled] = useState(false);
 
