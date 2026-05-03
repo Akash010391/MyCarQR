@@ -3,6 +3,9 @@ import cors from "cors";
 import pinoHttp from "pino-http";
 import { clerkMiddleware } from "@clerk/express";
 import { publishableKeyFromHost } from "@clerk/shared/keys";
+import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import router from "./routes";
 import { logger } from "./lib/logger";
 import {
@@ -12,6 +15,17 @@ import {
 } from "./middlewares/clerkProxyMiddleware";
 
 const app: Express = express();
+const moduleDir = path.dirname(fileURLToPath(import.meta.url));
+
+const frontendDistCandidates = [
+  path.resolve(process.cwd(), "artifacts", "mycarqr", "dist"),
+  path.resolve(process.cwd(), "..", "mycarqr", "dist"),
+  path.resolve(moduleDir, "..", "..", "mycarqr", "dist"),
+];
+
+const frontendDistDir = frontendDistCandidates.find((candidate) =>
+  fs.existsSync(path.join(candidate, "index.html")),
+);
 
 app.use(
   pinoHttp({
@@ -88,5 +102,28 @@ app.use(
 );
 
 app.use("/api", router);
+
+if (frontendDistDir) {
+  logger.info({ frontendDistDir }, "Serving frontend static build");
+
+  app.use(express.static(frontendDistDir));
+  app.get("/{*path}", (req, res, next) => {
+    if (req.path.startsWith("/api") || req.path.startsWith(CLERK_PROXY_PATH)) {
+      next();
+      return;
+    }
+
+    res.sendFile(path.join(frontendDistDir, "index.html"));
+  });
+} else {
+  logger.warn(
+    { frontendDistCandidates },
+    "Frontend build not found; root route will return status message",
+  );
+
+  app.get("/", (_req, res) => {
+    res.status(200).send("Server is running");
+  });
+}
 
 export default app;
