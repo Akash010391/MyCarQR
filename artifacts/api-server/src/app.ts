@@ -102,6 +102,9 @@ app.use(
 );
 
 app.use("/api", router);
+app.get("/healthz", (_req, res) => {
+  res.status(200).json({ status: "ok" });
+});
 
 if (frontendDistDir) {
   logger.info({ frontendDistDir }, "Serving frontend static build");
